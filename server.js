@@ -58,12 +58,6 @@ mongoose.connect(MONGO_URI, {
   console.error("❌ MongoDB connection error:", err);
 });
 
-// Helper เพิ่ม UserId อัตโนมัติ
-async function getNextUserId() {
-  const lastUser = await User.findOne().sort({ UserId: -1 });
-  return lastUser ? lastUser.UserId + 1 : 1;
-}
-
 // Routes
 app.use('/auth', authRoutes);
 app.use('/users', usersRoutes);
