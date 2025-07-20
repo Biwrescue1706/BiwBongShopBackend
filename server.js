@@ -314,21 +314,35 @@ app.put('/equipments/:id', authenticateToken, async (req, res) => {
   }
 });
 
-
 // ลบอุปกรณ์
 app.delete('/equipments/:id', authenticateToken, async (req, res) => {
   try {
-    const equipment = await Equipment.findOneAndDelete({ EID: parseInt(req.params.id, 10) });
-    if (!equipment) return res.status(404).json({ message: "ไม่พบอุปกรณ์" });
+    const equipmentId = parseInt(req.params.id, 10);
+    const equipment = await Equipment.findOneAndDelete({ EID: equipmentId });
+
+    if (!equipment) {
+      return res.status(404).json({ message: "ไม่พบอุปกรณ์ที่ต้องการลบ" });
+    }
+
     res.json({ message: "ลบอุปกรณ์เรียบร้อย" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดในการลบอุปกรณ์", error: err.message });
+  }
+});
+
+// Borrow Routes
+app.get('/borrow', async (req, res) => {
+  try {
+    const borrows = await Borrow.find();
+    res.json(borrows);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Borrow Routes
 app.post('/borrows', authenticateToken, async (req, res) => {
-  const { EquipmentID, Quantity, ReturnDate } = req.body;
+  const { EquipmentID, Quantity } = req.body;  // ตัด ReturnDate ออก
   try {
     const equipment = await Equipment.findOne({ EID: EquipmentID });
     if (!equipment || equipment.Available < Quantity) {
@@ -339,6 +353,7 @@ app.post('/borrows', authenticateToken, async (req, res) => {
     await equipment.save();
 
     const last = await Borrow.findOne().sort({ BorrowID: -1 });
+
     const borrow = new Borrow({
       BorrowID: last ? last.BorrowID + 1 : 1,
       username: req.user.username,
@@ -346,9 +361,10 @@ app.post('/borrows', authenticateToken, async (req, res) => {
       EquipmentID,
       Quantity,
       Date: new Date(),
-      ReturnDate: new Date(ReturnDate),
+      ReturnDate: null,  // หรือ กำหนดเป็น null หรือวันที่กำหนดเองที่นี่
       Returned: false
     });
+
     await borrow.save();
     res.status(201).json(borrow);
   } catch (err) {
@@ -356,7 +372,8 @@ app.post('/borrows', authenticateToken, async (req, res) => {
   }
 });
 
-app.get('/borrows', authenticateToken, async (req, res) => {
+
+app.get('/borrows',authenticateToken, async (req, res) => {
   try {
     const borrows = await Borrow.find({ username: req.user.username });
     res.json(borrows);
