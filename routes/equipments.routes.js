@@ -15,7 +15,7 @@ router.get('/getall', async (req, res) => {
   }
 });
 
-router.post('/create', authenticateToken, async (req, res) => {
+router.post('/getall/create', authenticateToken, async (req, res) => {
   console.log('Request body:', req.body); // เพิ่ม log เพื่อตรวจสอบ
   try {
     const { EName, Total } = req.body;
@@ -47,7 +47,7 @@ router.post('/create', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/getall/:id', async (req, res) => {
   try {
     const equipment = await Equipment.findOne({ EID: parseInt(req.params.id, 10) });
     if (!equipment) return res.status(404).json({ message: "ไม่พบอุปกรณ์" });
@@ -58,7 +58,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // อัปเดตอุปกรณ์ พร้อมเก็บข้อมูลผู้แก้ไข
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/getall/:id', authenticateToken, async (req, res) => {
   try {
     const equipmentId = parseInt(req.params.id, 10);
     const { EName, Total } = req.body;
@@ -105,7 +105,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // ลบอุปกรณ์
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/getall/:id', authenticateToken, async (req, res) => {
   try {
     const equipmentId = parseInt(req.params.id, 10);
     const equipment = await Equipment.findOneAndDelete({ EID: equipmentId });

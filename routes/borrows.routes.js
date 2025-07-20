@@ -9,14 +9,26 @@ const router = express.Router();
 router.get('/getall', async (req, res) => {
   try {
     const borrows = await Borrow.find();
-    res.json(borrows);
+    res.json({message : "ประวัติการยืมทั้งหมด",borrows});
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
 // GET borrow by BorrowID
-router.get('/:borrowId', authenticateToken, async (req, res) => {
+router.get('/getall/:borrowId', async (req, res) => {
+  try {
+    const borrowId = parseInt(req.params.borrowId, 10);
+    const borrow = await Borrow.findOne({ BorrowID: borrowId });
+    if (!borrow) return res.status(404).json({ message: 'ไม่พบข้อมูลการยืม' });
+    res.json({ message:`ประวัติการยืม คนที่ ${BorrowID} `,borrow});
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET borrow by BorrowID
+router.get('/getall/:borrowId', authenticateToken, async (req, res) => {
   try {
     const borrowId = parseInt(req.params.borrowId, 10);
     const borrow = await Borrow.findOne({ BorrowID: borrowId, username: req.user.username });
@@ -28,7 +40,7 @@ router.get('/:borrowId', authenticateToken, async (req, res) => {
 });
 
 // POST borrow new equipment
-router.post('/create', authenticateToken, async (req, res) => {
+router.post('/getall/create', authenticateToken, async (req, res) => {
   const { EquipmentID, Quantity } = req.body;  // ตัด ReturnDate ออก
   try {
     const equipment = await Equipment.findOne({ EID: EquipmentID });

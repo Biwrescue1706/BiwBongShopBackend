@@ -5,9 +5,9 @@ const authenticateToken = require('../middleware/authenticateToken');
 const router = express.Router();
 
 // GET all users
-router.get('/', async (req, res) => {
+router.get('/getall', async (req, res) => {
   try {
-    const users = await User.find({}, '-Password');
+    const users = await User.find().select('-password');
     res.json(users);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
 });
 
 // 🔒 Get user by ID
-router.get('/:id', async (req, res) => {
+router.get('/getall/:id', async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const user = await User.findOne({ UserId: id }).select('-password -_id -__v');
@@ -27,7 +27,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // PUT update user
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/getall/:id', authenticateToken, async (req, res) => {
   const { Name, Password } = req.body;
   try {
     const id = parseInt(req.params.id, 10);
@@ -55,7 +55,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // 🔒 Delete user by ID
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/getall/:id', authenticateToken, async (req, res) => {
   try {
     const deletedUser = await User.findOneAndDelete({ UserId: req.params.id });
     if (!deletedUser) return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
