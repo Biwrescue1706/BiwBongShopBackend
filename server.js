@@ -23,7 +23,7 @@ const Equipment = require('./models/Equipment');
 const Borrow = require('./models/Borrow');
 const Return = require('./models/Return');
 const authenticateToken = require('./middleware/authenticateToken');
-const verifyToken = require('./middleware/verifyToken');
+
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -131,8 +131,8 @@ app.post('/login', async (req, res) => {
     });
 
     res.json({
-      "ข้อความ": "เข้าสู่ระบบสำเร็จแล้ว",
-      "โทเค็น": token,
+      "message": "เข้าสู่ระบบสำเร็จแล้ว",
+      "token": token,
       "ข้อมูล": {
         "ไอดี": user.UserId,
         "ชื่อผู้ใช้": user.username,
@@ -213,29 +213,44 @@ app.put('/Users/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Equipment Routes
+// เพิ่มอุปกรณ์ (ต้องล็อกอิน)
 app.post('/equipments', authenticateToken, async (req, res) => {
-  const { EName, Total } = req.body;
+  console.log('Request body:', req.body); // เพิ่ม log เพื่อตรวจสอบ
   try {
+    const { EName, Total } = req.body;
+    if (!EName || typeof Total !== 'number') {
+      return res.status(400).json({ message: 'กรุณาระบุชื่ออุปกรณ์และจำนวนทั้งหมด' });
+    }
+
     const last = await Equipment.findOne().sort({ EID: -1 });
+    const newEID = last ? last.EID + 1 : 1;
+
     const equipment = new Equipment({
-      EID: last ? last.EID + 1 : 1,
+      EID: newEID,
       EName,
       Total,
       Available: Total,
+      Created_ById: req.user.UserId,
+      Created_Byusername: req.user.username,
       Created_At: new Date(),
-      Update_At: new Date()
+      Update_At: null,
+      Update_ById: null,
+      Update_Byusername: null,
     });
+
     await equipment.save();
     res.status(201).json(equipment);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: "เกิดข้อผิดพลาดในการเพิ่มอุปกรณ์", error: err.message });
   }
 });
 
 app.get('/equipments', async (req, res) => {
   try {
-    const equipments = await Equipment.find();
+    const equipments = await Equipment.find()
+      .populate('Created_ById', 'username name')
+      .populate('Update_ById', 'username name');
     res.json(equipments);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -252,28 +267,55 @@ app.get('/equipments/:id', async (req, res) => {
   }
 });
 
-app.put('/equipments/:id', authenticateToken, authenticateToken, async (req, res) => {
-  const { EName, Total } = req.body;
+// อัปเดตอุปกรณ์ พร้อมเก็บข้อมูลผู้แก้ไข
+app.put('/equipments/:id', authenticateToken, async (req, res) => {
   try {
-    const equipment = await Equipment.findOne({ EID: parseInt(req.params.id, 10) });
-    if (!equipment) return res.status(404).json({ message: "ไม่พบอุปกรณ์" });
+    const equipmentId = parseInt(req.params.id, 10);
+    const { EName, Total } = req.body;
 
-    if (EName) equipment.EName = EName;
-    if (typeof Total === 'number') {
-      const used = equipment.Total - equipment.Available;
-      if (Total < used) return res.status(400).json({ message: "Total น้อยเกินไป" });
-      equipment.Total = Total;
-      equipment.Available = Total - used;
+    const equipment = await Equipment.findOne({ EID: equipmentId });
+    if (!equipment) {
+      return res.status(404).json({ message: "ไม่พบอุปกรณ์" });
     }
+
+    if (EName) {
+      equipment.EName = EName;
+    }
+
+    if (typeof Total === 'number') {
+      // คำนวณจำนวนที่ถูกยืมออกไป (Total - Available)
+      const borrowed = equipment.Total - equipment.Available;
+
+      if (Total < borrowed) {
+        return res.status(400).json({ message: "จำนวนรวม (Total) ต้องไม่น้อยกว่าจำนวนที่ยืมออกไป" });
+      }
+
+      equipment.Total = Total;
+      equipment.Available = Total - borrowed;
+    }
+
+    // บันทึกข้อมูลผู้แก้ไขและเวลา
+    equipment.Update_ById = req.user.UserId;
+    equipment.Update_Byusername = req.user.username;
     equipment.Update_At = new Date();
 
     await equipment.save();
-    res.json(equipment);
+
+    res.json({
+      message: "อัปเดตอุปกรณ์เรียบร้อย",
+      equipment
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({
+      message: "เกิดข้อผิดพลาดในการอัปเดตอุปกรณ์",
+      error: err.message
+    });
   }
 });
 
+
+// ลบอุปกรณ์
 app.delete('/equipments/:id', authenticateToken, async (req, res) => {
   try {
     const equipment = await Equipment.findOneAndDelete({ EID: parseInt(req.params.id, 10) });
