@@ -8,7 +8,7 @@ router.get('/getall', async (req, res) => {
   try {
     const equipments = await Equipment.find()
       .populate('Created_ById', 'username name')
-      .populate('Update_ById', 'username name');
+      .populate('Update_ById', 'username name').select(' -_id -__v');
     res.json(equipments);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -50,7 +50,7 @@ router.post('/getall/create', authenticateToken, async (req, res) => {
 router.get('/getall/:id', async (req, res) => {
   try {
     const equipment = await Equipment.findOne({ EID: parseInt(req.params.id, 10) });
-    if (!equipment) return res.status(404).json({ message: "ไม่พบอุปกรณ์" });
+    if (!equipment) return res.status(404).json({ message: "ไม่พบอุปกรณ์" }).select(' -_id -__v');
     res.json(equipment);
   } catch (err) {
     res.status(500).json({ message: err.message });
