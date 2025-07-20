@@ -383,38 +383,60 @@ app.get('/borrows',authenticateToken, async (req, res) => {
 });
 
 // Return Routes
+app.get('/return', async (req, res) => {
+  try {
+    const returns = await Return.find();
+    res.json(returns);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.post('/returns', authenticateToken, async (req, res) => {
   const { BorrowID } = req.body;
-  try {
-    const borrow = await Borrow.findOne({ BorrowID });
-    if (!borrow) return res.status(404).json({ message: "ไม่พบรายการยืม" });
-    if (borrow.Returned) return res.status(400).json({ message: "รายการนี้คืนไปแล้ว" });
 
+  try {
+    // 1. หาข้อมูลการยืม
+    const borrow = await Borrow.findOne({ BorrowID });
+    if (!borrow) {
+      return res.status(404).json({ message: 'ไม่พบข้อมูลการยืม' });
+    }
+
+    // 2. อัปเดตจำนวน Available คืนกลับไปยัง Equipment
     const equipment = await Equipment.findOne({ EID: borrow.EquipmentID });
     if (equipment) {
       equipment.Available += borrow.Quantity;
       await equipment.save();
     }
 
-    const last = await Return.findOne().sort({ ReturnID: -1 });
-    const newReturn = new Return({
-      ReturnID: last ? last.ReturnID + 1 : 1,
+    // 3. อัปเดตฟิลด์ ReturnDate ใน borrow (ใช้วันที่คืนจริง)
+    const returnDate = new Date();
+    borrow.ReturnDate = returnDate;
+    borrow.Returned = true; // กำหนดสถานะว่า คืนแล้ว
+    await borrow.save();
+
+    // 4. บันทึกข้อมูลการคืนในคอลเลกชัน Returns
+    const lastReturn = await Return.findOne().sort({ ReturnID: -1 });
+
+    const returnRecord = new Return({
+      ReturnID: lastReturn ? lastReturn.ReturnID + 1 : 1,
       username: borrow.username,
       name: borrow.name,
       EquipmentID: borrow.EquipmentID,
       Quantity: borrow.Quantity,
-      ReturnDate: new Date()
+      ReturnDate: returnDate,
+      Created_At: new Date()
     });
-    await newReturn.save();
 
-    borrow.Returned = true;
-    await borrow.save();
+    await returnRecord.save();
 
-    res.json({ message: "คืนสำเร็จ", data: newReturn });
+    res.status(201).json({ message: 'คืนอุปกรณ์สำเร็จ', return: returnRecord });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: 'เกิดข้อผิดพลาดในการคืนอุปกรณ์', error: err.message });
   }
 });
+
 
 app.get('/returns', authenticateToken, async (req, res) => {
   try {
