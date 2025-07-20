@@ -1,14 +1,14 @@
 const mongoose = require('mongoose');
-const AutoIncrement = require('mongoose-sequence')(mongoose);
 
 const returnSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  equipmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Equipment', required: true },
-  quantity: { type: Number, required: true },
-  returnDate: { type: Date, required: true, default: Date.now },
-  createdAt: { type: Date, default: Date.now }
+  ReturnID: { type: Number, unique: true },
+  username: String,
+  name: String,
+  EquipmentID: Number,
+  Quantity: Number,
+  ReturnDate: Date,
+  Created_At: { type: Date, default: Date.now },
 });
 
-returnSchema.plugin(AutoIncrement, { inc_field: 'returnId' });
-
-module.exports = mongoose.model('Return', returnSchema);
+// แก้ตรงนี้
+module.exports = mongoose.models.Return || mongoose.model('Return', returnSchema);

@@ -1,131 +1,271 @@
-// server.js (หรือใช้ server.ts ถ้าใช้ TypeScript)
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
 const cookieParser = require('cookie-parser');
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
 
+// ตรวจสอบ JWT_SECRET
+if (!process.env.JWT_SECRET) {
+  console.error("❌ ERROR: JWT_SECRET is not defined in .env");
+  process.exit(1);
+}
+
+// ตรวจสอบ .env
+const PORT = process.env.PORT;
+const JWT_SECRET = process.env.JWT_SECRET;
+const MONGO_URI = process.env.MONGO_URI;
+
+// import models
 const User = require('./models/User');
 const Equipment = require('./models/Equipment');
 const Borrow = require('./models/Borrow');
 const Return = require('./models/Return');
+const authenticateToken = require('./middleware/authenticateToken');
+const verifyToken = require('./middleware/verifyToken');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
-const SALT_ROUNDS = 10;
+app.use(cors({ origin: true, credentials: true }));
 
-// Middleware
-app.use(cors({
-  origin: 'http://localhost:5500', // หรือ URL frontend
-  credentials: true
-}));
+// app.use(cors({
+//   origin: [
+//     'http://localhost:3000',
+//     'http://127.0.0.1:5500',
+//     'https://biwrescue1706.github.io/BiwBong',
+//     'https://biwbongbackend.onrender.com'
+//   ],
+//   credentials: true
+// }));
+
 app.use(express.json());
 app.use(cookieParser());
 
-// ✅ JWT Auth Middleware
-function authMiddleware(req, res, next) {
-  const token = req.cookies.token;
-  if (!token) return res.status(401).json({ message: 'Unauthorized' });
+// เชื่อมต่อ MongoDB
+mongoose.connect(MONGO_URI, {
+  dbName: 'BiwBongShop',
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log("✅ MongoDB connected");
+}).catch(err => {
+  console.error("❌ MongoDB connection error:", err);
+});
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res.status(401).json({ message: 'Invalid Token' });
-  }
+// Helper เพิ่ม UserId อัตโนมัติ
+async function getNextUserId() {
+  const lastUser = await User.findOne().sort({ UserId: -1 });
+  return lastUser ? lastUser.UserId + 1 : 1;
 }
 
-// ✅ Register
+// Routes
+
+app.get('/', (req, res) => {
+  res.send('Backend server is running');
+});
+
+// Register
 app.post('/register', async (req, res) => {
   try {
     const { username, name, password } = req.body;
-    const hashed = await bcrypt.hash(password, SALT_ROUNDS);
-
-    const lastUser = await User.findOne().sort({ UserId: -1 });
-    const newUser = await User.create({
-      UserId: (lastUser?.UserId || 0) + 1,
+    if (!username || !name || !password) {
+      return res.status(400).json({ message: "กรุณากรอก username, name และ password ให้ครบ" });
+    }
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(409).json({ message: "Username นี้ถูกใช้งานแล้ว" });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = new User({
+      UserId: await getNextUserId(),
       username,
-      Name: name,
-      password: hashed,
+      name,
+      password: hashedPassword,
+      Update_At: null
     });
-
-    res.json({ message: 'User registered', user: newUser });
+    await newUser.save();
+    res.json({
+      message: "สมัครสมาชิกสำเร็จ",
+      user: {
+        UserId: newUser.UserId,
+        username: newUser.username,
+        name: newUser.name,
+        Created_At: newUser.Created_At,
+        Update_At: newUser.Update_At
+      }
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({ message: "เกิดข้อผิดพลาด ในการ สมัครสมาชิก", error: err.message });
   }
 });
 
-// ✅ Login
+// Login
 app.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (!username || !password)
+      return res.status(400).json({ message: "กรุณากรอก username และ password" });
+
     const user = await User.findOne({ username });
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user)
+      return res.status(404).json({ message: "ไม่พบบัญชีผู้ใช้" });
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match)
+      return res.status(401).json({ message: "รหัสผ่านไม่ถูกต้อง" });
+
+    const datapayload = {
+      username: user.username,
+      name: user.name,
+      UserId: user.UserId
     }
 
-    const token = jwt.sign({ username: user.username, name: user.Name }, JWT_SECRET, { expiresIn: '1d' });
-    res.cookie('token', token, { httpOnly: true, sameSite: 'lax' }).json({ message: 'Login successful', name: user.Name });
+    const token = jwt.sign(datapayload, JWT_SECRET, { expiresIn: "5m" });
+
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 5 * 60 * 1000 // 5 นาที
+    });
+
+    res.json({
+      "ข้อความ": "เข้าสู่ระบบสำเร็จแล้ว",
+      "โทเค็น": token,
+      "ข้อมูล": {
+        "ไอดี": user.UserId,
+        "ชื่อผู้ใช้": user.username,
+        "ชื่อ": user.name
+      }
+    });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error(err);
+    res.status(500).json({
+      message: "เกิดข้อผิดพลาด",
+      error: err.message
+    });
   }
 });
 
-// ✅ Logout
+// Profile
+app.get('/profile', authenticateToken, (req, res) => {
+  res.json({
+    message: "โทเค็นถูกต้อง",
+    user: req.user,
+    signature: "ลายเซ็นได้รับการตรวจสอบแล้ว"
+  });
+});
+
+// Logout
 app.post('/logout', (req, res) => {
-  res.clearCookie('token').json({ message: 'Logged out' });
+  res.clearCookie('token');
+  res.json({ message: 'ออกจากระบบสำเร็จแล้ว' });
 });
 
-// ✅ Create Equipment
-app.post('/equipments', authMiddleware, async (req, res) => {
+// GET all users
+app.get('/Users', async (req, res) => {
   try {
-    const { name, total } = req.body;
-    const newEquipment = await Equipment.create({ name, total, available: total });
-    res.json(newEquipment);
+    const users = await User.find().select('-password -_id -__v');
+    res.json({ message: "สมาชิกทั้งหมด", users });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// ✅ Get All Equipments
+// GET user by ID
+app.get('/Users/:id', async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const user = await User.findOne({ UserId: id }).select('-password -_id -__v');
+    if (!user) return res.status(404).json({ message: "ไม่พบผู้ใช้" });
+    res.json({ message: `สมาชิก คนที่ ${id}`, user });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT update user
+app.put('/Users/:id', authenticateToken, async (req, res) => {
+  const { Name, Password } = req.body;
+  try {
+    const id = parseInt(req.params.id, 10);
+    const user = await User.findOne({ UserId: id });
+    if (!user) return res.status(404).json({ message: "ไม่พบผู้ใช้" });
+
+    if (Name) user.name = Name;
+    if (Password) user.password = await bcrypt.hash(Password, 10);
+    user.Update_At = new Date();
+
+    await user.save();
+
+    res.json({
+      message: "อัปเดตข้อมูลผู้ใช้สำเร็จ", user: {
+        UserId: user.UserId,
+        username: user.username,
+        name: user.name,
+        Created_At: user.Created_At,
+        Update_At: user.Update_At
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Equipment Routes
+app.post('/equipments', authenticateToken, async (req, res) => {
+  const { EName, Total } = req.body;
+  try {
+    const last = await Equipment.findOne().sort({ EID: -1 });
+    const equipment = new Equipment({
+      EID: last ? last.EID + 1 : 1,
+      EName,
+      Total,
+      Available: Total,
+      Created_At: new Date(),
+      Update_At: new Date()
+    });
+    await equipment.save();
+    res.status(201).json(equipment);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.get('/equipments', async (req, res) => {
   try {
-    const items = await Equipment.find();
-    res.json(items);
+    const equipments = await Equipment.find();
+    res.json(equipments);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// ✅ Get Equipment by ID
 app.get('/equipments/:id', async (req, res) => {
   try {
-    const equipment = await Equipment.findById(req.params.id);
-    if (!equipment) return res.status(404).json({ message: 'Not found' });
+    const equipment = await Equipment.findOne({ EID: parseInt(req.params.id, 10) });
+    if (!equipment) return res.status(404).json({ message: "ไม่พบอุปกรณ์" });
     res.json(equipment);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// ✅ Update Equipment
-app.put('/equipments/:id', authMiddleware, async (req, res) => {
+app.put('/equipments/:id', authenticateToken, authenticateToken, async (req, res) => {
+  const { EName, Total } = req.body;
   try {
-    const { name, total } = req.body;
-    const equipment = await Equipment.findById(req.params.id);
-    if (!equipment) return res.status(404).json({ message: 'Not found' });
+    const equipment = await Equipment.findOne({ EID: parseInt(req.params.id, 10) });
+    if (!equipment) return res.status(404).json({ message: "ไม่พบอุปกรณ์" });
 
-    if (name) equipment.name = name;
-    if (typeof total === 'number') {
-      const used = equipment.total - equipment.available;
-      if (total < used) return res.status(400).json({ message: 'Total น้อยเกินไป' });
-      equipment.total = total;
-      equipment.available = total - used;
+    if (EName) equipment.EName = EName;
+    if (typeof Total === 'number') {
+      const used = equipment.Total - equipment.Available;
+      if (Total < used) return res.status(400).json({ message: "Total น้อยเกินไป" });
+      equipment.Total = Total;
+      equipment.Available = Total - used;
     }
+    equipment.Update_At = new Date();
 
     await equipment.save();
     res.json(equipment);
@@ -134,103 +274,99 @@ app.put('/equipments/:id', authMiddleware, async (req, res) => {
   }
 });
 
-// ✅ Delete Equipment
-app.delete('/equipments/:id', authMiddleware, async (req, res) => {
+app.delete('/equipments/:id', authenticateToken, async (req, res) => {
   try {
-    const equipment = await Equipment.findByIdAndDelete(req.params.id);
-    if (!equipment) return res.status(404).json({ message: 'Not found' });
-    res.json({ message: 'Deleted successfully' });
+    const equipment = await Equipment.findOneAndDelete({ EID: parseInt(req.params.id, 10) });
+    if (!equipment) return res.status(404).json({ message: "ไม่พบอุปกรณ์" });
+    res.json({ message: "ลบอุปกรณ์เรียบร้อย" });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// ✅ Borrow Equipment
-app.post('/borrow', authMiddleware, async (req, res) => {
+// Borrow Routes
+app.post('/borrows', authenticateToken, async (req, res) => {
+  const { EquipmentID, Quantity, ReturnDate } = req.body;
   try {
-    const { EquipmentID, Quantity, ReturnDate } = req.body;
-    const equipment = await Equipment.findById(EquipmentID);
-    if (!equipment || equipment.available < Quantity) {
-      return res.status(400).json({ message: 'Not enough available' });
+    const equipment = await Equipment.findOne({ EID: EquipmentID });
+    if (!equipment || equipment.Available < Quantity) {
+      return res.status(400).json({ message: "จำนวนอุปกรณ์ไม่พอ" });
     }
 
-    equipment.available -= Quantity;
+    equipment.Available -= Quantity;
     await equipment.save();
 
-    const borrow = await Borrow.create({
-      Username: req.user.username,
+    const last = await Borrow.findOne().sort({ BorrowID: -1 });
+    const borrow = new Borrow({
+      BorrowID: last ? last.BorrowID + 1 : 1,
+      username: req.user.username,
       name: req.user.name,
       EquipmentID,
       Quantity,
       Date: new Date(),
-      ReturnDate,
+      ReturnDate: new Date(ReturnDate),
+      Returned: false
     });
-
-    res.json(borrow);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// ✅ Return Equipment
-app.post('/return/:borrowId', authMiddleware, async (req, res) => {
-  try {
-    const borrow = await Borrow.findById(req.params.borrowId);
-    if (!borrow || borrow.Returned) return res.status(400).json({ message: 'Already returned or invalid' });
-
-    const equipment = await Equipment.findById(borrow.EquipmentID);
-    if (equipment) {
-      equipment.available += borrow.Quantity;
-      await equipment.save();
-    }
-
-    await Return.create({
-      BorrowID: borrow._id,
-      Username: borrow.Username,
-      name: borrow.name,
-      EquipmentID: borrow.EquipmentID,
-      Quantity: borrow.Quantity,
-      ReturnDate: new Date(),
-    });
-
-    borrow.Returned = true;
     await borrow.save();
-
-    res.json({ message: 'Returned successfully' });
+    res.status(201).json(borrow);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// ✅ Get my borrows
-app.get('/my-borrows', authMiddleware, async (req, res) => {
+app.get('/borrows', authenticateToken, async (req, res) => {
   try {
-    const borrows = await Borrow.find({ Username: req.user.username });
+    const borrows = await Borrow.find({ username: req.user.username });
     res.json(borrows);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// ✅ Get overdue borrows
-app.get('/overdue', authMiddleware, async (req, res) => {
+// Return Routes
+app.post('/returns', authenticateToken, async (req, res) => {
+  const { BorrowID } = req.body;
   try {
-    const now = new Date();
-    const overdue = await Borrow.find({
-      Username: req.user.username,
-      ReturnDate: { $lt: now },
-      Returned: { $ne: true }
+    const borrow = await Borrow.findOne({ BorrowID });
+    if (!borrow) return res.status(404).json({ message: "ไม่พบรายการยืม" });
+    if (borrow.Returned) return res.status(400).json({ message: "รายการนี้คืนไปแล้ว" });
+
+    const equipment = await Equipment.findOne({ EID: borrow.EquipmentID });
+    if (equipment) {
+      equipment.Available += borrow.Quantity;
+      await equipment.save();
+    }
+
+    const last = await Return.findOne().sort({ ReturnID: -1 });
+    const newReturn = new Return({
+      ReturnID: last ? last.ReturnID + 1 : 1,
+      username: borrow.username,
+      name: borrow.name,
+      EquipmentID: borrow.EquipmentID,
+      Quantity: borrow.Quantity,
+      ReturnDate: new Date()
     });
-    res.json(overdue);
+    await newReturn.save();
+
+    borrow.Returned = true;
+    await borrow.save();
+
+    res.json({ message: "คืนสำเร็จ", data: newReturn });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// ✅ MongoDB Connect & Start
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-.then(() => {
-  console.log('✅ MongoDB Connected');
-  app.listen(PORT, () => console.log(`🚀 Server running at http://localhost:${PORT}`));
-})
-.catch(err => console.error('❌ MongoDB Error:', err));
+app.get('/returns', authenticateToken, async (req, res) => {
+  try {
+    const returns = await Return.find({ username: req.user.username });
+    res.json(returns);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Start Server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
+});
