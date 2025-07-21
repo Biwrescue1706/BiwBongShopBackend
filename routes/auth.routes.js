@@ -32,6 +32,7 @@ router.post('/register', async (req, res) => {
       Update_At: null
     });
     await newUser.save();
+
     res.json({
       message: "สมัครสมาชิกสำเร็จ",
       user: {
@@ -42,6 +43,7 @@ router.post('/register', async (req, res) => {
         Update_At: newUser.Update_At
       }
     });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "เกิดข้อผิดพลาด ในการ สมัครสมาชิก", error: err.message });
@@ -71,11 +73,15 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign(datapayload, JWT_SECRET, { expiresIn: "15m" });
 
+      // ✅ เพิ่ม header เพื่อให้แน่ใจว่าการ cross-origin ทำงาน
+    res.header('Access-Control-Allow-Origin', 'https://biwrescue1706.github.io');
+    res.header('Access-Control-Allow-Credentials', 'true');
+
     res.cookie('token', token, {
       httpOnly: false,
       secure: true,        // ✅ true เพราะ Frontend ใช้ HTTPS
       sameSite: 'None',    // ✅ ต้องใช้ None เพราะ cross-domain
-      maxAge: 24 * 60 * 60 * 1000
+      maxAge: 15 * 60 * 1000
     });
 
     res.json({
