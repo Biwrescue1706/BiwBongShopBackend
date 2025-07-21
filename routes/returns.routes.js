@@ -3,7 +3,7 @@ const express = require('express');
 const Return = require('../models/Return');
 const Borrow = require('../models/Borrow');
 const Equipment = require('../models/Equipment');
-const AuthenticateTokens = require('./middleware/AuthenticateToken');
+const authenticateToken = require('../middleware/authenticateToken');
 
 const router = express.Router();
 
@@ -18,7 +18,7 @@ router.get('/getall', async (req, res) => {
 });
 
 // GET returns ของผู้ใช้ที่ล็อกอิน
-router.get('/getuser', AuthenticateTokens, async (req, res) => {
+router.get('/getuser', authenticateToken, async (req, res) => {
   try {
     const returns = await Return.find({ username: req.user.username });
     res.json(returns);
@@ -29,7 +29,7 @@ router.get('/getuser', AuthenticateTokens, async (req, res) => {
 
 
 // POST คืนอุปกรณ์
-router.post('/getall/create', AuthenticateTokens, async (req, res) => {
+router.post('/getall/create', authenticateToken, async (req, res) => {
   const { BorrowID } = req.body;
 
   try {

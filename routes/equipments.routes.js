@@ -1,6 +1,6 @@
 const express = require('express');
 const Equipment = require('../models/Equipment');
-const AuthenticateTokens = require('./middleware/AuthenticateToken');
+const authenticateToken = require('../middleware/authenticateToken');
 
 const router = express.Router();
 
@@ -15,7 +15,7 @@ router.get('/getall', async (req, res) => {
   }
 });
 
-router.post('/getall/create', AuthenticateTokens, async (req, res) => {
+router.post('/getall/create', authenticateToken, async (req, res) => {
   console.log('Request body:', req.body); // เพิ่ม log เพื่อตรวจสอบ
   try {
     const { EName, Total } = req.body;
@@ -58,7 +58,7 @@ router.get('/getall/:id', async (req, res) => {
 });
 
 // อัปเดตอุปกรณ์ พร้อมเก็บข้อมูลผู้แก้ไข
-router.put('/getall/:id', AuthenticateTokens, async (req, res) => {
+router.put('/getall/:id', authenticateToken, async (req, res) => {
   try {
     const equipmentId = parseInt(req.params.id, 10);
     const { EName, Total } = req.body;
@@ -105,7 +105,7 @@ router.put('/getall/:id', AuthenticateTokens, async (req, res) => {
 });
 
 // ลบอุปกรณ์
-router.delete('/getall/:id', AuthenticateTokens, async (req, res) => {
+router.delete('/getall/:id', authenticateToken, async (req, res) => {
   try {
     const equipmentId = parseInt(req.params.id, 10);
     const equipment = await Equipment.findOneAndDelete({ EID: equipmentId });
