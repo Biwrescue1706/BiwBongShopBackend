@@ -17,13 +17,6 @@ const PORT = process.env.PORT;
 const JWT_SECRET = process.env.JWT_SECRET;
 const MONGO_URI = process.env.MONGO_URI;
 
-// import models
-const User = require('./models/User');
-const Equipment = require('./models/Equipment');
-const Borrow = require('./models/Borrow');
-const Return = require('./models/Return');
-
-
 // import routes
 const authRoutes = require('./routes/auth.routes');
 const usersRoutes = require('./routes/users.routes');
