@@ -71,8 +71,6 @@ router.post('/login', async (req, res) => {
       UserId: user.UserId
     }
 
-    const isProduction = process.env.NODE_ENV === 'production';
-
     const token = jwt.sign(
       datapayload,
       JWT_SECRET,
@@ -83,10 +81,11 @@ router.post('/login', async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: isProduction,        // ต้องใช้ HTTPS
-      sameSite: isProduction ? 'None' : 'Lax' ,    // เพื่อส่ง cookie ข้ามโดเมน
-      maxAge: 15 * 60 * 1000 // 15 นาที เป็นมิลลิวินาที
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+      maxAge: 15 * 60 * 1000, // 15 นาที ตามอายุ JWT
     });
+
 
     res.json({
       "message": "เข้าสู่ระบบสำเร็จแล้ว",
