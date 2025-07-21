@@ -107,15 +107,12 @@ router.post('/login', async (req, res) => {
 });
 
 // Profile
-const authenticateToken = require('../middleware/authenticateToken');
+const authenticateToken = require('./middleware/authenticateToken');
 
-router.get('/profile', authenticateToken, (req, res) => {
-  res.json({
-    UserId: req.user.UserId,
-    username: req.user.username,
-    name: req.user.name
-  });
+app.get('/profile', authenticateToken, (req, res) => {
+  res.json({ user: req.user });
 });
+
 
 // Logout
 router.post('/logout', (req, res) => {
