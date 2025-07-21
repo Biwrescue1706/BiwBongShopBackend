@@ -74,7 +74,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(datapayload, JWT_SECRET, { expiresIn: "15m" });
 
       // ✅ เพิ่ม header เพื่อให้แน่ใจว่าการ cross-origin ทำงาน
-    res.header('Access-Control-Allow-Origin', 'https://biwrescue1706.github.io');
+    res.header('Access-Control-Allow-Origin', 'https://biwrescue1706.github.io' ,'http://127.0.0.1:5500');
     res.header('Access-Control-Allow-Credentials', 'true');
 
     res.cookie('token', token, {
