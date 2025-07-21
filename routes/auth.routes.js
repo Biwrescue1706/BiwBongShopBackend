@@ -69,13 +69,13 @@ router.post('/login', async (req, res) => {
       UserId: user.UserId
     }
 
-    const token = jwt.sign(datapayload, JWT_SECRET, { expiresIn: "5m" });
+    const token = jwt.sign(datapayload, JWT_SECRET, { expiresIn: "15m" });
 
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 5 * 60 * 1000 // 5 นาที
+      maxAge: 15 * 60 * 1000 // 15 นาที
     });
 
     res.json({
@@ -108,5 +108,14 @@ router.post('/logout', (req, res) => {
   res.clearCookie('token');
   res.json({ message: 'ออกจากระบบสำเร็จแล้ว' });
 });
+
+router.get('/me', authenticateToken, (req, res) => {
+  res.json({
+    UserId: req.user.UserId,
+    username: req.user.username,
+    name: req.user.name
+  });
+});
+
 
 module.exports = router;
