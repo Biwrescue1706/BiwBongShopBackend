@@ -20,7 +20,7 @@ const allowedOrigins = [
   'http://localhost:5500',
   'http://localhost:3000',
   'https://biwbong-frontend.onrender.com',
-  'https://biwrescue1706.github.io/BiwBong-Frontend',
+  'https://biwrescue1706.github.io',
   'https://biwbongbackend.onrender.com'
 ];
 
