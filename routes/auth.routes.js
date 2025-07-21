@@ -83,7 +83,7 @@ router.post('/login', async (req, res) => {
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' ,
       sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
       maxAge: 15 * 60 * 1000, // 15 นาที ตามอายุ JWT
     });

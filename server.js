@@ -17,6 +17,7 @@ if (!JWT_SECRET) {
 // กำหนด Origin ที่อนุญาต
 const allowedOrigins = [
   'http://127.0.0.1:5500',
+  'http://localhost:5500',
   'http://localhost:3000',
   'https://biwbong-frontend.onrender.com',
   'https://biwrescue1706.github.io/BiwBong-Frontend',
