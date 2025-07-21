@@ -2,7 +2,7 @@
 const express = require('express');
 const Borrow = require('../models/Borrow');
 const Equipment = require('../models/Equipment');
-const authenticateToken = require('../middleware/AuthenticateToken');
+const AuthenticateTokens = require('../middleware/AuthenticateToken');
 
 const router = express.Router();
 
@@ -28,7 +28,7 @@ router.get('/getall/:borrowId', async (req, res) => {
 });
 
 // GET borrow by BorrowID
-router.get('/getall/:borrowId', authenticateToken, async (req, res) => {
+router.get('/getall/:borrowId', AuthenticateTokens, async (req, res) => {
   try {
     const borrowId = parseInt(req.params.borrowId, 10);
     const borrow = await Borrow.findOne({ BorrowID: borrowId, username: req.user.username });
@@ -40,7 +40,7 @@ router.get('/getall/:borrowId', authenticateToken, async (req, res) => {
 });
 
 // POST borrow new equipment
-router.post('/getall/create', authenticateToken, async (req, res) => {
+router.post('/getall/create', AuthenticateTokens, async (req, res) => {
   const { EquipmentID, Quantity } = req.body;  // ตัด ReturnDate ออก
   try {
     const equipment = await Equipment.findOne({ EID: EquipmentID });

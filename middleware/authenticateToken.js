@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
-function authenticateToken(req, res, next) {
+function AuthenticateTokens(req, res, next) {
   // ดึง token จาก cookie หรือ Authorization header (Bearer token)
   const token = req.cookies?.token || req.headers['authorization']?.split(' ')[1];
 
@@ -20,4 +20,4 @@ function authenticateToken(req, res, next) {
   });
 }
 
-module.exports = authenticateToken;
+module.exports = AuthenticateTokens;
