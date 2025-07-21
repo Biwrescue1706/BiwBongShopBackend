@@ -72,10 +72,10 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(datapayload, JWT_SECRET, { expiresIn: "15m" });
 
     res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000 // 15 นาที
+      httpOnly: false,
+      secure: true,        // ✅ true เพราะ Frontend ใช้ HTTPS
+      sameSite: 'None',    // ✅ ต้องใช้ None เพราะ cross-domain
+      maxAge: 24 * 60 * 60 * 1000
     });
 
     res.json({
