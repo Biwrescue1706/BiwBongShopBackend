@@ -37,13 +37,11 @@ app.use(cors({
   origin: function(origin, callback) {
     const allowedOrigins = [
       'http://127.0.0.1:5500',
-      'https://biwrescue1706.github.io/BiwBong'
+      'https://biwbong-frontend.onrender.com'
     ];
-    // origin อาจเป็น undefined ถ้า request จากเครื่องมืออย่าง Postman ให้ผ่าน
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+      return callback(new Error('CORS policy...'), false);
     }
     return callback(null, true);
   },
