@@ -107,7 +107,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-app.get('/profile', authenticateToken, (req, res) => {
+router.get('/profile', authenticateToken, (req, res) => {
   res.json({ user: req.user });
 });
 
