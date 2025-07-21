@@ -29,7 +29,14 @@ const app = express();
 
 // ใช้ middleware
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); // allow non-browser tools (postman, curl)
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json());
