@@ -71,13 +71,21 @@ router.post('/login', async (req, res) => {
       UserId: user.UserId
     }
 
-    const token = jwt.sign(datapayload, JWT_SECRET, { expiresIn: "15m" });
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    const token = jwt.sign(
+      datapayload,
+      JWT_SECRET,
+      {
+        expiresIn: "15m"
+      }
+    ); // token หมดอายุ 15 นาที
 
     res.cookie('token', token, {
       httpOnly: true,
-      secure: true , 
-      sameSite: 'None',    // ✅ ต้องใช้ None เพราะ cross-domain
-      maxAge: 15 * 60 * 1000
+      secure: isProduction,        // ต้องใช้ HTTPS
+      sameSite: isProduction ? 'None' : 'Lax' ,    // เพื่อส่ง cookie ข้ามโดเมน
+      maxAge: 15 * 60 * 1000 // 15 นาที เป็นมิลลิวินาที
     });
 
     res.json({
@@ -102,16 +110,6 @@ router.post('/login', async (req, res) => {
 const authenticateToken = require('../middleware/authenticateToken');
 
 router.get('/profile', authenticateToken, (req, res) => {
-  res.json({ user: req.user });
-});
-
-// Logout
-router.post('/logout', (req, res) => {
-  res.clearCookie('token');
-  res.json({ message: 'ออกจากระบบสำเร็จแล้ว' });
-});
-
-router.get('/me', authenticateToken, (req, res) => {
   res.json({
     UserId: req.user.UserId,
     username: req.user.username,
@@ -119,5 +117,10 @@ router.get('/me', authenticateToken, (req, res) => {
   });
 });
 
+// Logout
+router.post('/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ message: 'ออกจากระบบสำเร็จแล้ว' });
+});
 
 module.exports = router;

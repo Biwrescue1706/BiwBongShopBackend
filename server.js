@@ -33,11 +33,13 @@ const returnsRoutes = require('./routes/returns.routes');
 
 const app = express();
 
+const allowedOrigins = [
+  'http://127.0.0.1:5500',
+  'https://biwbong-frontend.onrender.com'
+];
+
 app.use((req, res, next) => {
-  const allowedOrigins = [
-    'http://127.0.0.1:5500',
-    'https://biwbong-frontend.onrender.com'
-  ];
+
   const origin = req.headers.origin;
 
   if (allowedOrigins.includes(origin)) {
