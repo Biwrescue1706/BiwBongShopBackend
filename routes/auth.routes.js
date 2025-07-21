@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
     ); // token หมดอายุ 15 นาที
 
     res.cookie('token', token, {
-      httpOnly: false,         // ถ้าอยากให้ frontend เห็นให้เปลี่ยนเป็น false (ไม่แนะนำ)
+      httpOnly: true,         // ถ้าอยากให้ frontend เห็นให้เปลี่ยนเป็น false (ไม่แนะนำ)
       secure: true,           // ต้องเป็น true ถ้าใช้ HTTPS
       sameSite: 'None',       // ต้องตั้ง None ถ้า frontend/backend คนละ origin
       maxAge:  15  * 60 * 1000
