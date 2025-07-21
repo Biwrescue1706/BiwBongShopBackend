@@ -6,6 +6,8 @@ const User = require('../models/User');
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET;
 
+const authenticateToken = require('../middleware/AuthenticateToken');
+
 // Helper สำหรับเพิ่ม UserId
 async function getNextUserId() {
   const lastUser = await User.findOne().sort({ UserId: -1 });
@@ -104,9 +106,6 @@ router.post('/login', async (req, res) => {
     });
   }
 });
-
-// Profile
-const authenticateToken = require('./middleware/authenticateToken');
 
 app.get('/profile', authenticateToken, (req, res) => {
   res.json({ user: req.user });

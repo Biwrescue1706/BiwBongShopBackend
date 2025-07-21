@@ -22,7 +22,7 @@ const User = require('./models/User');
 const Equipment = require('./models/Equipment');
 const Borrow = require('./models/Borrow');
 const Return = require('./models/Return');
-const authenticateToken = require('./middleware/authenticateToken');
+const authenticateToken = require('./middleware/AuthenticateToken');
 
 // import routes
 const authRoutes = require('./routes/auth.routes');
