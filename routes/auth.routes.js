@@ -82,12 +82,11 @@ router.post('/login', async (req, res) => {
     ); // token หมดอายุ 15 นาที
 
     res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
-      maxAge: 15 * 60 * 1000, // 15 นาที ตามอายุ JWT
+      httpOnly: true,         // ถ้าอยากให้ frontend เห็นให้เปลี่ยนเป็น false (ไม่แนะนำ)
+      secure: true,           // ต้องเป็น true ถ้าใช้ HTTPS
+      sameSite: 'None',       // ต้องตั้ง None ถ้า frontend/backend คนละ origin
+      maxAge:  15  * 60 * 1000
     });
-
 
     res.json({
       "message": "เข้าสู่ระบบสำเร็จแล้ว",
