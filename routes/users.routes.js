@@ -28,27 +28,35 @@ router.get('/getall/:id', async (req, res) => {
 
 // PUT update user
 router.put('/getall/:id', async (req, res) => {
-  const { Name, Password } = req.body;
   try {
+
     const id = parseInt(req.params.id, 10);
+    const { username, name, password } = req.body;
+
     const user = await User.findOne({ UserId: id });
     if (!user) return res.status(404).json({ message: "ไม่พบผู้ใช้" });
 
-    if (Name) user.name = Name;
-    if (Password) user.password = await bcrypt.hash(Password, 10);
+    // อัปเดตตามค่าที่ส่งมา
+    if (username) user.username = username;
+    if (name) user.name = name;
+    if (password) user.password = await bcrypt.hash(password, 10);
+
     user.Update_At = new Date();
 
     await user.save();
 
     res.json({
-      message: "อัปเดตข้อมูลผู้ใช้สำเร็จ", user: {
+      message: "อัปเดตข้อมูลผู้ใช้สำเร็จ",
+      user: {
         UserId: user.UserId,
         username: user.username,
         name: user.name,
+        password: user.password,
         Created_At: user.Created_At,
         Update_At: user.Update_At
       }
     });
+
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

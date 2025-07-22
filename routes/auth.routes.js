@@ -85,7 +85,7 @@ router.post('/login', async (req, res) => {
       httpOnly: true,         // ถ้าอยากให้ frontend เห็นให้เปลี่ยนเป็น false (ไม่แนะนำ)
       secure: true,           // ต้องเป็น true ถ้าใช้ HTTPS
       sameSite: 'None',       // ต้องตั้ง None ถ้า frontend/backend คนละ origin
-      maxAge:  15  * 60 * 1000
+      maxAge: 15 * 60 * 1000
     });
 
     res.json({
@@ -115,6 +115,37 @@ router.get('/profile', authenticateToken, (req, res) => {
 router.post('/logout', (req, res) => {
   res.clearCookie('token');
   res.json({ message: 'ออกจากระบบสำเร็จแล้ว' });
+});
+
+// ✅ ลืมรหัสผ่าน (ตรวจสอบ username ว่ามีในระบบไหม)
+router.post('/forgot-password', async (req, res) => {
+  const { username } = req.body;
+  try {
+    const user = await User.findOne({ username });
+    if (!user) return res.status(404).json({ message: 'ไม่พบผู้ใช้ในระบบ' });
+
+    // คุณสามารถเลือกส่ง email หรือ redirect ไปหน้า reset ได้
+    res.json({ message: 'พบชื่อผู้ใช้ในระบบ สามารถเปลี่ยนรหัสผ่านได้' });
+  } catch (err) {
+    res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+  }
+});
+
+// ✅ รีเซ็ตรหัสผ่าน (ไม่ใช้ token)
+router.post('/reset-password', async (req, res) => {
+  const { username, newPassword } = req.body;
+  try {
+    const user = await User.findOne({ username });
+    if (!user) return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    user.password = hashed;
+    await user.save();
+
+    res.json({ message: 'เปลี่ยนรหัสผ่านสำเร็จ' });
+  } catch (err) {
+    res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+  }
 });
 
 module.exports = router;
