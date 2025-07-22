@@ -27,7 +27,7 @@ router.get('/getall/:id', async (req, res) => {
 });
 
 // PUT update user
-router.put('/getall/:id', authenticateToken, async (req, res) => {
+router.put('/getall/:id', async (req, res) => {
   const { Name, Password } = req.body;
   try {
     const id = parseInt(req.params.id, 10);
@@ -55,7 +55,7 @@ router.put('/getall/:id', authenticateToken, async (req, res) => {
 });
 
 // 🔒 Delete user by ID
-router.delete('/getall/:id', authenticateToken, async (req, res) => {
+router.delete('/getall/:id', async (req, res) => {
   try {
     const deletedUser = await User.findOneAndDelete({ UserId: req.params.id });
     if (!deletedUser) return res.status(404).json({ message: 'ไม่พบผู้ใช้' });
