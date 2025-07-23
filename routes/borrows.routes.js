@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/getall', async (req, res) => {
   try {
     const borrows = await Borrow.find();
-    res.json({message : "ประวัติการยืมทั้งหมด",borrows});
+    res.json({ message: "ประวัติการยืมทั้งหมด", borrows });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -21,7 +21,7 @@ router.get('/getall/:borrowId', async (req, res) => {
     const borrowId = parseInt(req.params.borrowId, 10);
     const borrow = await Borrow.findOne({ BorrowID: borrowId });
     if (!borrow) return res.status(404).json({ message: 'ไม่พบข้อมูลการยืม' });
-    res.json({ message:`ประวัติการยืม คนที่ ${BorrowID} `,borrow});
+    res.json({ message: `ประวัติการยืม คนที่ ${BorrowID} `, borrow });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -29,33 +29,44 @@ router.get('/getall/:borrowId', async (req, res) => {
 
 // POST borrow new equipment
 router.post('/getall/create', authenticateToken, async (req, res) => {
-  const { EquipmentID, Quantity } = req.body;  // ตัด ReturnDate ออก
+  const { EquipmentID, Quantity, names } = req.body;
   try {
     const equipment = await Equipment.findOne({ EID: EquipmentID });
-    if (!equipment || equipment.Available < Quantity) {
-      return res.status(400).json({ message: "จำนวนอุปกรณ์ไม่พอ" });
+    if (!equipment) {
+      return res.status(404).json({ message: 'ไม่พบอุปกรณ์' });
+    }
+
+    if (equipment.Available < Quantity) {
+      return res.status(400).json({ message: 'จำนวนอุปกรณ์ไม่พอ' });
     }
 
     equipment.Available -= Quantity;
     await equipment.save();
 
-    const last = await Borrow.findOne().sort({ BorrowID: -1 });
+    const lastBorrow = await Borrow.findOne().sort({ BorrowID: -1 });
+    const newBorrowID = lastBorrow ? lastBorrow.BorrowID + 1 : 1;
 
     const borrow = new Borrow({
-      BorrowID: last ? last.BorrowID + 1 : 1,
+      BorrowID: newBorrowID,
       username: req.user.username,
       name: req.user.name,
+      names,
       EquipmentID,
       Quantity,
       Date: new Date(),
-      ReturnDate: null,  // หรือ กำหนดเป็น null หรือวันที่กำหนดเองที่นี่
-      Returned: false
+      ReturnDate: null,
+      Returned: false,
+      Created_At: new Date()
     });
 
     await borrow.save();
-    res.status(201).json(borrow);
+
+    res.status(201).json({ message: 'ยืมอุปกรณ์สำเร็จ', borrow });
+
   } catch (err) {
+
     res.status(500).json({ message: err.message });
+  
   }
 });
 

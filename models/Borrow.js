@@ -4,6 +4,7 @@ const borrowSchema = new mongoose.Schema({
   BorrowID: { type: Number, unique: true },
   username: String,
   name: String,
+  names: String,
   EquipmentID: Number,
   Quantity: Number,
   Date: Date,
