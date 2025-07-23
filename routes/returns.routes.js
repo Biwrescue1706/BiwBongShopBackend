@@ -30,50 +30,55 @@ router.get('/getuser', authenticateToken, async (req, res) => {
 
 // POST คืนอุปกรณ์
 router.post('/getall/create', authenticateToken, async (req, res) => {
-  const { BorrowID } = req.body;
+  const { BorrowID, returnQuantity } = req.body; // เพิ่ม field ที่ผู้ใช้ส่งมา
 
   try {
-    // 1. หาข้อมูลการยืม
     const borrow = await Borrow.findOne({ BorrowID });
-    if (!borrow) {
-      return res.status(404).json({ message: 'ไม่พบข้อมูลการยืม' });
+    if (!borrow) return res.status(404).json({ message: 'ไม่พบข้อมูลการยืม' });
+
+    const remainingQty = borrow.Quantity - borrow.ReturnedQuantity;
+    if (returnQuantity > remainingQty) {
+      return res.status(400).json({ message: `คุณสามารถคืนได้ไม่เกิน ${remainingQty} ชิ้น` });
     }
 
-    // 2. อัปเดตจำนวน Available คืนกลับไปยัง Equipment
+    // อัปเดตจำนวนใน Equipment
     const equipment = await Equipment.findOne({ EID: borrow.EquipmentID });
     if (equipment) {
-      equipment.Available += borrow.Quantity;
+      equipment.Available += returnQuantity;
       await equipment.save();
     }
 
-    // 3. อัปเดตฟิลด์ ReturnDate ใน borrow (ใช้วันที่คืนจริง)
-    const returnDate = new Date();
-    borrow.ReturnDate = returnDate;
-    borrow.Returned = true; // กำหนดสถานะว่า คืนแล้ว
+    // อัปเดตใน Borrow
+    borrow.ReturnedQuantity += returnQuantity;
+    if (borrow.ReturnedQuantity >= borrow.Quantity) {
+      borrow.Returned = true;
+      borrow.ReturnDate = new Date();
+    }
     await borrow.save();
 
-    // 4. บันทึกข้อมูลการคืนในคอลเลกชัน Returns
+    // สร้าง Record การคืน
     const lastReturn = await Return.findOne().sort({ ReturnID: -1 });
-
     const returnRecord = new Return({
       ReturnID: lastReturn ? lastReturn.ReturnID + 1 : 1,
+      BorrowID: borrow.BorrowID,
       username: borrow.username,
       name: borrow.name,
+      names: borrow.names,
       EquipmentID: borrow.EquipmentID,
-      Quantity: borrow.Quantity,
-      ReturnDate: returnDate,
+      Ename: borrow.EName,
+      Quantity: returnQuantity,
+      ReturnDate: new Date(),
       Created_At: new Date()
     });
 
     await returnRecord.save();
 
-    res.status(201).json({ message: 'คืนอุปกรณ์สำเร็จ', return: returnRecord });
+    res.status(201).json({ message: 'คืนอุปกรณ์บางส่วนสำเร็จ', return: returnRecord });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'เกิดข้อผิดพลาดในการคืนอุปกรณ์', error: err.message });
   }
 });
-
-
 
 module.exports = router;
