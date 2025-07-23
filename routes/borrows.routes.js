@@ -27,18 +27,6 @@ router.get('/getall/:borrowId', async (req, res) => {
   }
 });
 
-// GET borrow by BorrowID
-router.get('/getall/:borrowId', authenticateToken, async (req, res) => {
-  try {
-    const borrowId = parseInt(req.params.borrowId, 10);
-    const borrow = await Borrow.findOne({ BorrowID: borrowId, username: req.user.username });
-    if (!borrow) return res.status(404).json({ message: 'ไม่พบข้อมูลการยืม' });
-    res.json(borrow);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
 // POST borrow new equipment
 router.post('/getall/create', authenticateToken, async (req, res) => {
   const { EquipmentID, Quantity } = req.body;  // ตัด ReturnDate ออก
