@@ -10,17 +10,17 @@ const router = express.Router();
 // GET all returns ไม่ได้login 
 router.get('/getall', async (req, res) => {
   try {
-    const returns = await Return.find({ username: req.user.username });
-    res.json(returns);
+    const returns = await Return.find().select(' -_id -__v');
+    res.json({message: "ประวัติการยืมทั้งหมด",returns});
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
 // GET returns ของผู้ใช้ที่ล็อกอิน
-router.get('/getuser', authenticateToken, async (req, res) => {
+router.get('/getuser', async (req, res) => {
   try {
-    const returns = await Return.find({ username: req.user.username });
+    const returns = await Return.find().select(' -_id -__v');;
     res.json(returns);
   } catch (err) {
     res.status(500).json({ message: err.message });
