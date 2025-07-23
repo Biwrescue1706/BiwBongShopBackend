@@ -52,6 +52,7 @@ router.post('/getall/create', authenticateToken, async (req, res) => {
       name: req.user.name,
       names,
       EquipmentID,
+      EName: equipment.EName,
       Quantity,
       Date: new Date(),
       ReturnDate: null,

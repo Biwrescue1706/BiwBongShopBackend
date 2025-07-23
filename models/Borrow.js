@@ -6,6 +6,7 @@ const borrowSchema = new mongoose.Schema({
   name: String,
   names: String,
   EquipmentID: Number,
+  EName: String,
   Quantity: Number,
   Date: Date,
   ReturnDate: Date,

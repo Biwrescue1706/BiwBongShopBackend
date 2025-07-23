@@ -5,6 +5,7 @@ const returnSchema = new mongoose.Schema({
   username: String,
   name: String,
   EquipmentID: Number,
+  Ename:String,
   Quantity: Number,
   ReturnDate: Date,
   Created_At: { type: Date, default: Date.now },
