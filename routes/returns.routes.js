@@ -11,7 +11,7 @@ const router = express.Router();
 router.get('/getall', async (req, res) => {
   try {
     const returns = await Return.find().select(' -_id -__v');
-    res.json({message: "ประวัติการยืมทั้งหมด",returns});
+    res.json({message: "ประวัติการคืนทั้งหมด",returns});
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

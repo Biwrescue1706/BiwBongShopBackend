@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.get('/getall', async (req, res) => {
   try {
-    const borrows = await Borrow.find();
+    const borrows = await Borrow.find().select(' -_id -__v');
     res.json({ message: "ประวัติการยืมทั้งหมด", borrows });
   } catch (err) {
     res.status(500).json({ message: err.message });
