@@ -8,6 +8,7 @@ const borrowSchema = new mongoose.Schema({
   EquipmentID: Number,
   EName: String,
   Quantity: Number,
+  ReturnedQuantity: { type: Number, default: 0 },
   Date: Date,
   ReturnDate: Date,
   Returned: { type: Boolean, default: false },

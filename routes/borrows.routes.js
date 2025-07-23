@@ -21,7 +21,7 @@ router.get('/getall/:borrowId', async (req, res) => {
     const borrowId = parseInt(req.params.borrowId, 10);
     const borrow = await Borrow.findOne({ BorrowID: borrowId });
     if (!borrow) return res.status(404).json({ message: 'ไม่พบข้อมูลการยืม' });
-    res.json({ message: `ประวัติการยืม คนที่ ${BorrowID} `, borrow });
+    res.json({ message: `ประวัติการยืม คนที่ ${borrowId}`, borrow });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -30,6 +30,15 @@ router.get('/getall/:borrowId', async (req, res) => {
 // POST borrow new equipment
 router.post('/getall/create', authenticateToken, async (req, res) => {
   const { EquipmentID, Quantity, names } = req.body;
+
+  if (!names || typeof names !== 'string' || names.trim() === '') {
+    return res.status(400).json({ message: 'กรุณาระบุชื่อผู้ยืม' });
+  }
+
+  if (!Number.isInteger(Quantity) || Quantity <= 0) {
+    return res.status(400).json({ message: 'จำนวนที่ยืมต้องเป็นจำนวนเต็มบวก' });
+  }
+
   try {
     const equipment = await Equipment.findOne({ EID: EquipmentID });
     if (!equipment) {
@@ -50,10 +59,11 @@ router.post('/getall/create', authenticateToken, async (req, res) => {
       BorrowID: newBorrowID,
       username: req.user.username,
       name: req.user.name,
-      names,
+      names: names.trim(),
       EquipmentID,
       EName: equipment.EName,
       Quantity,
+      ReturnedQuantity: 0,
       Date: new Date(),
       ReturnDate: null,
       Returned: false,
@@ -65,9 +75,7 @@ router.post('/getall/create', authenticateToken, async (req, res) => {
     res.status(201).json({ message: 'ยืมอุปกรณ์สำเร็จ', borrow });
 
   } catch (err) {
-
     res.status(500).json({ message: err.message });
-  
   }
 });
 
