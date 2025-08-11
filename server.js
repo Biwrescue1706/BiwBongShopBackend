@@ -1,21 +1,24 @@
-// Server.js
+// server.js
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
-// ===== ตรวจ .env =====
+const app = express();
+
+// ===== .env =====
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
+const NODE_ENV = process.env.NODE_ENV || 'production';
 
 if (!MONGO_URI) {
-  console.error('❌ ERROR: MONGO_URI is not defined in .env');
+  console.error('❌ MONGO_URI missing');
   process.exit(1);
 }
 if (!JWT_SECRET) {
-  console.error('❌ ERROR: JWT_SECRET is not defined in .env');
+  console.error('❌ JWT_SECRET missing');
   process.exit(1);
 }
 
@@ -28,30 +31,24 @@ const allowedOrigins = [
   'https://biwbongbackend.onrender.com',
 ];
 
-// ===== App =====
-const app = express();
-
-// สำคัญเมื่ออยู่หลัง proxy (เช่น Render) เพื่อให้คุกกี้ secure ทำงาน
+// ===== Core config =====
+// อยู่หลัง proxy (Render) เพื่อให้ secure cookie ทำงาน
 app.set('trust proxy', 1);
 
-// ===== CORS =====
+// CORS + preflight
 const corsOptions = {
-  origin(origin, callback) {
-    // อนุญาตเครื่องมืออย่าง Postman/ไม่มี Origin
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    return callback(new Error('Not allowed by CORS'));
+  origin(origin, cb) {
+    if (!origin) return cb(null, true); // เช่น Postman/health checks
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
   },
-  credentials: true, // ให้ส่ง/รับคุกกี้ได้
+  credentials: true,
   methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
-
-// ใช้กับทุก request และรองรับ preflight
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
 
-// ===== Middlewares =====
 app.use(express.json());
 app.use(cookieParser());
 
@@ -64,7 +61,7 @@ mongoose
   })
   .then(() => console.log('✅ MongoDB connected'))
   .catch((err) => {
-    console.error('❌ MongoDB connection error:', err.message || err);
+    console.error('❌ MongoDB connection error:', err?.message || err);
     process.exit(1);
   });
 
@@ -82,7 +79,7 @@ app.use('/borrows', borrowsRoutes);
 app.use('/returns', returnsRoutes);
 
 // ===== Health & Root =====
-app.get('/healthz', (req, res) => res.json({ ok: true }));
+app.get('/healthz', (req, res) => res.json({ ok: true, env: NODE_ENV }));
 app.get('/', (req, res) => res.send('🚀 Backend server is running...'));
 
 // ===== 404 =====
@@ -93,12 +90,13 @@ app.use((req, res) => {
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
   console.error('❌', err.stack || err);
-  res
-    .status(500)
-    .json({ message: 'เกิดข้อผิดพลาดของเซิร์ฟเวอร์', error: err.message || String(err) });
+  res.status(500).json({
+    message: 'เกิดข้อผิดพลาดของเซิร์ฟเวอร์',
+    error: err.message || String(err),
+  });
 });
 
 // ===== Start =====
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
