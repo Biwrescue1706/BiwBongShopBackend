@@ -6,12 +6,10 @@ const User = require('../models/User');
 const authenticateToken = require('../middleware/authenticateToken');
 
 const router = express.Router();
+
 const JWT_SECRET = process.env.JWT_SECRET;
 const isProd = process.env.NODE_ENV === 'production';
-
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET is not defined');
-}
+if (!JWT_SECRET) throw new Error('JWT_SECRET is not defined');
 
 // ===== Helpers =====
 async function getNextUserId() {
@@ -22,8 +20,8 @@ async function getNextUserId() {
 function cookieOpts(maxAgeMs) {
   return {
     httpOnly: true,
-    secure: isProd,                 // https เท่านั้นเมื่อ production
-    sameSite: isProd ? 'none' : 'lax', // cross-site ต้อง none
+    secure: isProd,                     // https เท่านั้นเมื่อ production (Render)
+    sameSite: isProd ? 'none' : 'lax',  // cross-site ต้อง none
     path: '/',
     maxAge: maxAgeMs,
   };
@@ -72,8 +70,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password)
-      return res.status(400).json({ message: 'กรุณากรอก username และ password' });
+    if (!username || !password) return res.status(400).json({ message: 'กรุณากรอก username และ password' });
 
     const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ message: 'ไม่พบบัญชีผู้ใช้' });
@@ -86,25 +83,21 @@ router.post('/login', async (req, res) => {
 
     res.cookie('token', token, cookieOpts(15 * 60 * 1000)); // 15 นาที
 
-    // ถ้าใช้ httpOnly cookie อยู่แล้ว ไม่จำเป็นต้องส่ง token กลับ
-    res.json({
-      message: 'เข้าสู่ระบบสำเร็จแล้ว',
-      user: payload,
-    });
+    res.json({ message: 'เข้าสู่ระบบสำเร็จแล้ว', user: payload });
   } catch (err) {
     console.error('[login]', err);
     res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
   }
 });
 
-// ===== Me/Profile (ต้องมีคุกกี้ token) =====
+// ===== Profile (ต้องมีคุกกี้ token) =====
 router.get('/profile', authenticateToken, (req, res) => {
   res.json({ user: req.user });
 });
 
 // ===== Logout =====
 router.post('/logout', (req, res) => {
-  // ต้องระบุ option เดิมเวลา clearCookie ไม่งั้นบางเบราว์เซอร์ไม่ลบ
+  // ต้องระบุ options เดิมเวลา clearCookie ไม่งั้นบางเบราว์เซอร์ไม่ลบ
   res.clearCookie('token', {
     httpOnly: true,
     secure: isProd,
@@ -123,7 +116,6 @@ router.post('/forgot-password', async (req, res) => {
     const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ message: 'ไม่พบผู้ใช้ในระบบ' });
 
-    // จุดนี้สามารถต่อการส่งอีเมล/ลิงก์รีเซ็ตได้
     res.json({ message: 'พบชื่อผู้ใช้ในระบบ สามารถเปลี่ยนรหัสผ่านได้' });
   } catch (err) {
     console.error('[forgot-password]', err);
@@ -131,7 +123,7 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// ===== Reset Password (no token) =====
+// ===== Reset Password =====
 router.post('/reset-password', async (req, res) => {
   try {
     const { username, newPassword } = req.body;
