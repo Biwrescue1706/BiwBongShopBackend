@@ -19,7 +19,7 @@ const allowedOrigins = [
   'http://127.0.0.1:5500',
   'http://localhost:5500',
   'http://localhost:3000',    
-'https://biwbongshop.onrender.com', 'https://biwbongbackend.onrender.com'
+'https://biwbongshop.onrender.com', 'https://biwbongshopbackend.onrender.com'
 ];
 
 // สร้าง app
