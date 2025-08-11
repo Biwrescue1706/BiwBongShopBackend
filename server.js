@@ -13,14 +13,8 @@ const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 const NODE_ENV = process.env.NODE_ENV || 'production';
 
-if (!MONGO_URI) {
-  console.error('❌ MONGO_URI missing');
-  process.exit(1);
-}
-if (!JWT_SECRET) {
-  console.error('❌ JWT_SECRET missing');
-  process.exit(1);
-}
+if (!MONGO_URI) { console.error('❌ MONGO_URI missing'); process.exit(1); }
+if (!JWT_SECRET) { console.error('❌ JWT_SECRET missing'); process.exit(1); }
 
 // ===== Allowed Origins =====
 const allowedOrigins = [
@@ -32,19 +26,17 @@ const allowedOrigins = [
 ];
 
 // ===== Core config =====
-// อยู่หลัง proxy (Render) เพื่อให้ secure cookie ทำงาน
 app.set('trust proxy', 1);
 
-// CORS + preflight
 const corsOptions = {
   origin(origin, cb) {
-    if (!origin) return cb(null, true); // เช่น Postman/health checks
+    if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error('Not allowed by CORS'));
   },
   credentials: true,
-  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization'],
 };
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
@@ -53,30 +45,38 @@ app.use(express.json());
 app.use(cookieParser());
 
 // ===== MongoDB =====
-mongoose
-  .connect(MONGO_URI, {
-    dbName: 'BiwBongShop',
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch((err) => {
-    console.error('❌ MongoDB connection error:', err?.message || err);
+mongoose.connect(MONGO_URI, {
+  dbName: 'BiwBongShop',
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log('✅ MongoDB connected'))
+.catch((err) => {
+  console.error('❌ MongoDB connection error:', err?.message || err);
+  process.exit(1);
+});
+
+// ===== Helper: safeMount (ประกาศก่อนใช้) =====
+function safeMount(path, modPath) {
+  try {
+    const router = require(modPath);
+    if (typeof router !== 'function') {
+      throw new Error(`Module ${modPath} did not export a router/function`);
+    }
+    app.use(path, router);
+    console.log(`✅ Mounted ${modPath} at ${path}`);
+  } catch (e) {
+    console.error(`❌ Mount failed for ${modPath}:`, e);
     process.exit(1);
-  });
+  }
+}
 
-// ===== Routes =====
-const authRoutes = require('./routes/auth.routes');
-const usersRoutes = require('./routes/users.routes');
-const equipmentsRoutes = require('./routes/equipments.routes');
-const borrowsRoutes = require('./routes/borrows.routes');
-const returnsRoutes = require('./routes/returns.routes');
-
-app.use('/auth', authRoutes);
-app.use('/users', usersRoutes);
-app.use('/equipments', equipmentsRoutes);
-app.use('/borrows', borrowsRoutes);
-app.use('/returns', returnsRoutes);
+// ===== Routes (ใช้ safeMount ชุดเดียวพอ) =====
+safeMount('/auth', './routes/auth.routes');
+safeMount('/users', './routes/users.routes');
+safeMount('/equipments', './routes/equipments.routes');
+safeMount('/borrows', './routes/borrows.routes');
+safeMount('/returns', './routes/returns.routes');
 
 // ===== Health & Root =====
 app.get('/healthz', (req, res) => res.json({ ok: true, env: NODE_ENV }));
