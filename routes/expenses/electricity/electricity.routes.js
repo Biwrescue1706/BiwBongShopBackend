@@ -11,7 +11,6 @@ function generateId() {
   return `${r()}-${r()}-${r()}`;
 }
 
-// รับ "2025-08", "2025-08-01", Date ฯลฯ → คืน "YYYY-MM-25"
 function normalizeMonth(input) {
   const d = input ? new Date(input) : new Date();
   if (isNaN(d.getTime())) throw new Error('รูปแบบ Emonth ไม่ถูกต้อง');
@@ -20,7 +19,6 @@ function normalizeMonth(input) {
   return `${y}-${m}-25`;
 }
 
-// ปรับค่าของรายการตั้งแต่เดือนที่มากกว่า startMonth ไปข้างหน้า
 async function cascadeRecalculate(tx, startMonth, startMeter) {
   const nextItems = await tx.electricity.findMany({
     where: { Emonth: { gt: startMonth } },
@@ -39,36 +37,30 @@ async function cascadeRecalculate(tx, startMonth, startMeter) {
     const Eprice = Eunits * ELEC_RATE;
     await tx.electricity.update({
       where: { Eid: it.Eid },
-      data: { EprevMeter: prevMeter, Eunits, Eprice },
+      data: { EprevMeter: prevMeter, Eunits, Eprice, updatedAt: new Date() },
     });
     prevMeter = it.Emeter;
   }
 }
 
-/* ========================= Routes =======================*/
+/* ========================= Routes ======================= */
 
+// GET /expenses/electricity/getall
 router.get('/getall', async (req, res) => {
   try {
     const { q } = req.query;
-
-    // สร้าง where ตาม q (ถ้า q = YYYY-MM จะ match เดือนนั้น, ถ้า q = YYYY-MM-DD จะเท่ากันเป๊ะ)
     let where = {};
+
     if (typeof q === 'string' && q.trim()) {
       const s = q.trim();
-      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-        where = { Emonth: s };
-      } else if (/^\d{4}-\d{2}$/.test(s)) {
-        where = { Emonth: { startsWith: s } };
-      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) where = { Emonth: s };
+      else if (/^\d{4}-\d{2}$/.test(s)) where = { Emonth: { startsWith: s } };
     }
 
-    const [items, total] = await prisma.$transaction([
-      prisma.electricity.findMany({
-        where,
-        orderBy: [{ Emonth: 'asc' }],
-      }),
-      prisma.electricity.count({ where }),
-    ]);
+    const items = await prisma.electricity.findMany({
+      where,
+      orderBy: [{ Emonth: 'asc' }],
+    });
     res.json(items);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -76,7 +68,6 @@ router.get('/getall', async (req, res) => {
 });
 
 // GET /expenses/electricity/getall/latest
-// ใช้ Emonth desc เพื่อให้ได้เดือนล่าสุดจริง
 router.get('/getall/latest', async (_req, res) => {
   try {
     const latest = await prisma.electricity.findFirst({
@@ -88,88 +79,20 @@ router.get('/getall/latest', async (_req, res) => {
   }
 });
 
-// POST /expenses/electricity/getall/create  { Emonth, Emeter, baselinePrevMeter? }
-router.post('/getall/create', async (req, res) => {
-  try {
-    let { Emonth, Emeter, baselinePrevMeter } = req.body;
-    if (typeof Emeter !== 'number') {
-      return res.status(400).json({ message: 'กรุณาระบุ Emeter (number)' });
-    }
-    if (Emeter < 0) {
-      return res.status(400).json({ message: 'Emeter ต้องเป็นค่าบวกหรือศูนย์' });
-    }
-
-    const targetMonth = normalizeMonth(Emonth);
-
-    const created = await prisma.$transaction(async (tx) => {
-      // กันซ้ำเดือนเดิม
-      const dup = await tx.electricity.findFirst({ where: { Emonth: targetMonth } });
-      if (dup) throw new Error(`เดือน ${targetMonth} ถูกบันทึกไว้แล้ว`);
-
-      // หาเดือนก่อนหน้าโดยเทียบ Emonth
-      const prev = await tx.electricity.findFirst({
-        where: { Emonth: { lt: targetMonth } },
-        orderBy: { Emonth: 'desc' },
-      });
-
-      let prevMeter = prev ? prev.Emeter : 0;
-
-      // อนุญาต baselinePrevMeter เฉพาะกรณี "ไม่มีเดือนก่อนหน้า"
-      if (!prev && typeof baselinePrevMeter === 'number') {
-        if (baselinePrevMeter < 0) throw new Error('baselinePrevMeter ต้องเป็นค่าบวกหรือศูนย์');
-        if (baselinePrevMeter > Emeter) throw new Error('baselinePrevMeter ต้องไม่มากกว่า Emeter');
-        prevMeter = baselinePrevMeter;
-      }
-
-      const Eunits = Emeter - prevMeter;
-      if (Eunits < 0) {
-        return res.status(400).json({ message: 'Emeter ต้องไม่ต่ำกว่าเดือนก่อน' });
-      }
-
-      const Eprice = Eunits * ELEC_RATE;
-
-      const row = await tx.electricity.create({
-        data: {
-          Eid: generateId(),
-          Emonth: targetMonth,
-          Emeter,
-          EprevMeter: prevMeter,
-          Eunits,
-          Eprice,
-          createdAt: new Date(),
-        },
-      });
-
-      // ถ้าแทรกกลาง (มีเดือนที่มากกว่า targetMonth อยู่แล้ว) → ต้อง cascade
-      const hasNext = await tx.electricity.findFirst({
-        where: { Emonth: { gt: targetMonth } },
-        select: { Eid: true },
-      });
-      if (hasNext) {
-        await cascadeRecalculate(tx, targetMonth, Emeter);
-      }
-
-      return row;
-    });
-
-    res.status(201).json(created);
-  } catch (err) {
-    res.status(400).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
-  }
-});
-
 // PUT /expenses/electricity/getall/:Eid
 router.put('/getall/:Eid', async (req, res) => {
   try {
     const { Eid } = req.params;
-    let { Emonth, Emeter, EprevMeter, allowPrevOverride } = req.body;
+    let { Emonth, Emeter, EprevMeter, createdAt } = req.body;
 
     const current = await prisma.electricity.findUnique({ where: { Eid } });
     if (!current) return res.status(404).json({ message: 'ไม่พบรายการ' });
 
-    const newMonth = Emonth ? normalizeMonth(Emonth) : current.Emonth;
+    // === newMonth ===
+    const newMonth = (Emonth !== undefined && Emonth !== null)
+      ? normalizeMonth(Emonth)
+      : current.Emonth;
 
-    // ห้ามซ้ำเดือน (ยกเว้นตัวเอง)
     if (newMonth !== current.Emonth) {
       const dup = await prisma.electricity.findFirst({
         where: { Emonth: newMonth, NOT: { Eid } },
@@ -177,52 +100,62 @@ router.put('/getall/:Eid', async (req, res) => {
       if (dup) return res.status(400).json({ message: `เดือน ${newMonth} ถูกบันทึกไว้แล้ว` });
     }
 
-    const newMeter = typeof Emeter === 'number' ? Emeter : current.Emeter;
+    // === newMeter ===
+    const newMeter = (typeof Emeter === 'number') ? Emeter : current.Emeter;
     if (newMeter < 0) return res.status(400).json({ message: 'Emeter ต้องเป็นค่าบวกหรือศูนย์' });
 
-    const updated = await prisma.$transaction(async (tx) => {
-      // หาเดือนก่อนหน้าตามตำแหน่ง newMonth (ไม่นับตัวเอง)
-      const prevRec = await tx.electricity.findFirst({
+    // === prevMeter ===
+    let prevMeter;
+    let usedProvidedPrev = false;
+
+    if (typeof EprevMeter === 'number') {
+      if (EprevMeter < 0) return res.status(400).json({ message: 'EprevMeter ต้องเป็นค่าบวกหรือศูนย์' });
+      if (EprevMeter > newMeter) return res.status(400).json({ message: 'EprevMeter ต้องไม่มากกว่า Emeter' });
+      prevMeter = EprevMeter;
+      usedProvidedPrev = true;
+    } else {
+      const prevRec = await prisma.electricity.findFirst({
         where: { Emonth: { lt: newMonth }, NOT: { Eid } },
         orderBy: { Emonth: 'desc' },
         select: { Emeter: true, Emonth: true },
       });
+      prevMeter = prevRec ? prevRec.Emeter : 0;
+    }
 
-      let prevMeter = prevRec ? prevRec.Emeter : 0;
+    const Eunits = newMeter - prevMeter;
+    if (Eunits < 0) return res.status(400).json({ message: 'Emeter ต้องไม่ต่ำกว่าเดือนก่อน' });
 
-      // ✅ อนุญาต override เมื่อร้องขออย่างชัดเจน
-      if (allowPrevOverride === true && typeof EprevMeter === 'number') {
-        if (EprevMeter < 0) throw new Error('EprevMeter ต้องเป็นค่าบวกหรือศูนย์');
-        if (EprevMeter > newMeter) throw new Error('EprevMeter ต้องไม่มากกว่า Emeter');
+    const Eprice = Eunits * ELEC_RATE;
 
-        // ถ้ามีเดือนก่อนอยู่ ต้องไม่ทำให้ chain ขาด
-        if (prevRec && EprevMeter !== prevRec.Emeter) {
-          throw new Error(
-            `EprevMeter ต้องเท่ากับ Emeter ของเดือนก่อนหน้า (${prevRec.Emonth}: ${prevRec.Emeter})`
-          );
-        }
-        prevMeter = EprevMeter;
+    // === patch data ===
+    const patch = {
+      Emonth: newMonth,
+      Emeter: newMeter,
+      EprevMeter: prevMeter,
+      Eunits,
+      Eprice,
+      updatedAt: new Date(),
+    };
+
+    // อนุญาตแก้ createdAt ถ้ามีส่งมา
+    if (createdAt !== undefined && createdAt !== null) {
+      const d = new Date(createdAt);
+      if (isNaN(d.getTime())) {
+        return res.status(400).json({ message: 'รูปแบบ createdAt ไม่ถูกต้อง' });
       }
+      patch.createdAt = d;
+    }
 
-      const Eunits = newMeter - prevMeter;
-      if (Eunits < 0) throw new Error('Emeter ต้องไม่ต่ำกว่าเดือนก่อน');
-
-      const Eprice = Eunits * ELEC_RATE;
-
-      // อัปเดต record นี้
+    const updated = await prisma.$transaction(async (tx) => {
       const row = await tx.electricity.update({
         where: { Eid },
-        data: {
-          Emonth: newMonth,
-          Emeter: newMeter,
-          EprevMeter: prevMeter,
-          Eunits,
-          Eprice,
-        },
+        data: patch,
       });
 
-      // cascade คำนวณเดือนถัดไปใหม่
-      await cascadeRecalculate(tx, newMonth, newMeter);
+      // cascade เฉพาะกรณีที่ chain มีผล
+      if (newMonth !== current.Emonth || newMeter !== current.Emeter || usedProvidedPrev) {
+        await cascadeRecalculate(tx, newMonth, newMeter);
+      }
 
       return row;
     });
@@ -242,7 +175,6 @@ router.delete('/getall/:Eid', async (req, res) => {
       const cur = await tx.electricity.findUnique({ where: { Eid } });
       if (!cur) throw Object.assign(new Error('ไม่พบรายการ'), { code: 'P2025' });
 
-      // หาเดือนก่อนหน้าเพื่อตั้งต้น cascade
       const prevRec = await tx.electricity.findFirst({
         where: { Emonth: { lt: cur.Emonth }, NOT: { Eid } },
         orderBy: { Emonth: 'desc' },
@@ -253,7 +185,6 @@ router.delete('/getall/:Eid', async (req, res) => {
 
       await tx.electricity.delete({ where: { Eid } });
 
-      // cascade: คำนวณใหม่ตั้งแต่เดือนถัดไป
       await cascadeRecalculate(tx, prevMonth, prevMeter);
     });
 

@@ -23,10 +23,6 @@ function normalizeMonth(input) {
 // -------- Routes --------
 
 // POST /expenses/combined/create
-// body: { Emonth?, Emeter, Wmonth?, Wmeter }
-// - ถ้าไม่ส่ง Emonth/Wmonth จะใช้เดือนปัจจุบัน (วันที่ 25)
-// - บังคับไม่ให้มีบันทึกซ้ำของเดือนเดียวกัน
-// - แนะนำให้ใช้เดือนเดียวกัน ถ้าไม่ตรงจะ error
 router.post('/create', async (req, res) => {
   try {
     let { Emonth, Emeter, Wmonth, Wmeter } = req.body ?? {};
