@@ -14,11 +14,22 @@ router.post('/register', async (req, res) => {
   try {
     const { username, name, password } = req.body;
     if (!username || !name || !password) {
-      return res.status(400).json({ message: 'กรุณากรอก username, name และ password ให้ครบ' });
+      return res.status(400).json(
+        {
+          message: 'กรุณากรอก username, name และ password ให้ครบ'
+        });
     }
 
-    const existing = await prisma.user.findUnique({ where: { username } });
-    if (existing) return res.status(409).json({ message: 'Username นี้ถูกใช้งานแล้ว' });
+    const existing = await prisma.user.findUnique(
+      {
+        where: { username }
+      });
+    if (existing) {
+      return res.status(409).json(
+        {
+          message: 'Username นี้ถูกใช้งานแล้ว'
+        });
+    }
 
     const hashed = await bcrypt.hash(password, 10);
     const user = await prisma.user.create({
@@ -29,12 +40,26 @@ router.post('/register', async (req, res) => {
         password: hashed,
         Update_At: null
       },
-      select: { UserId: true, username: true, name: true, Created_At: true, Update_At: true }
+      select: {
+        UserId: true,
+        username: true,
+        name: true,
+        Created_At: true,
+        Update_At: true
+      }
     });
 
-    res.json({ message: 'สมัครสมาชิกสำเร็จ', user });
+    res.json(
+      {
+        message: 'สมัครสมาชิกสำเร็จ',
+        user
+      });
   } catch (err) {
-    res.status(500).json({ message: 'เกิดข้อผิดพลาด ในการ สมัครสมาชิก', error: err.message });
+    res.status(500).json(
+      {
+        message: 'เกิดข้อผิดพลาด ในการ สมัครสมาชิก',
+        error: err.message
+      });
   }
 });
 
@@ -46,13 +71,33 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'กรุณากรอก username และ password' });
 
     const user = await prisma.user.findUnique({ where: { username } });
-    if (!user) return res.status(404).json({ message: 'ไม่พบบัญชีผู้ใช้' });
+    if (!user) {
+      return res.status(404).json(
+        {
+          message: 'ไม่พบบัญชีผู้ใช้'
+        });
+    }
 
     const matched = await bcrypt.compare(password, user.password);
-    if (!matched) return res.status(401).json({ message: 'รหัสผ่านไม่ถูกต้อง' });
+    if (!matched) {
+      return res.status(401).json(
+        {
+          message: 'รหัสผ่านไม่ถูกต้อง'
 
-    const payload = { username: user.username, name: user.name, UserId: user.UserId };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
+        });
+    }
+
+    const payload = {
+      username: user.username,
+      name: user.name,
+      UserId: user.UserId
+    };
+    const token = jwt.sign(
+      payload,
+      JWT_SECRET,
+      {
+        expiresIn: '15m'
+      });
 
     res.cookie('token', token, {
       httpOnly: true,
@@ -64,10 +109,17 @@ router.post('/login', async (req, res) => {
     res.json({
       message: 'เข้าสู่ระบบสำเร็จแล้ว',
       token,
-      ข้อมูล: { ไอดี: user.UserId, ชื่อผู้ใช้: user.username, ชื่อ: user.name }
+      ข้อมูล: {
+        ไอดี: user.UserId,
+        ชื่อผู้ใช้: user.username,
+        ชื่อ: user.name
+      }
     });
   } catch (err) {
-    res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    res.status(500).json(
+      {
+        message: 'เกิดข้อผิดพลาด', error: err.message
+      });
   }
 });
 

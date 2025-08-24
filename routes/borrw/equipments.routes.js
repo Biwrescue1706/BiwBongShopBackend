@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/getall', async (_req, res) => {
   try {
     const equipments = await prisma.equipment.findMany({
-      orderBy: { Created_At: 'desc' }
+      orderBy: { EName: 'asc' , Available : 'desc' }
     });
     res.json(equipments);
   } catch (err) {

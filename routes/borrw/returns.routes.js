@@ -10,7 +10,7 @@ const router = express.Router();
 router.get('/getall', async (_req, res) => {
   try {
     const returns = await prisma.return.findMany({
-      orderBy: { Created_At: 'desc' }
+      orderBy: { ReturnID: 'asc' }
     });
     res.json({ message: 'ประวัติการคืนทั้งหมด', returns });
   } catch (err) {
@@ -23,7 +23,7 @@ router.get('/getuser', authenticateToken, async (req, res) => {
   try {
     const returns = await prisma.return.findMany({
       where: { username: req.user.username },
-      orderBy: { Created_At: 'desc' }
+      orderBy: { ReturnID: 'asc' }
     });
     res.json(returns);
   } catch (err) {

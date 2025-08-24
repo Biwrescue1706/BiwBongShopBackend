@@ -14,7 +14,7 @@ router.get('/getall', async (_req, res) => {
         Created_At: true,
         Update_At: true
       },
-      orderBy: { Created_At: 'desc' }
+      orderBy: { UserId: 'asc' }
     });
     res.json(users);
   } catch (err) {

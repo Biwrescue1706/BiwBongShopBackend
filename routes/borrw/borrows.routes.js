@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/getall', async (_req, res) => {
   try {
     const borrows = await prisma.borrow.findMany({
-      orderBy: { Created_At: 'desc' }
+      orderBy: { BorrowID: 'asc' }
     });
     res.json({ message: 'ประวัติการยืมทั้งหมด', borrows });
   } catch (err) {
