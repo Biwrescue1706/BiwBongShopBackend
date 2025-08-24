@@ -56,6 +56,9 @@ const usersRoutes = require('./routes/borrw/users.routes');
 const equipmentsRoutes = require('./routes/borrw/equipments.routes');
 const borrowsRoutes = require('./routes/borrw/borrows.routes');
 const returnsRoutes = require('./routes/borrw/returns.routes');
+const electricityRoutes = require('./routes/expenses/electricity/electricity.routes');
+const waterRoutes = require('./routes/expenses/water/water.routes');
+const combineRoutes = require('./routes/expenses/combined/combined.routes');
 
 // ใช้งาน routes
 app.use('/auth', authRoutes);
@@ -63,6 +66,10 @@ app.use('/users', usersRoutes);
 app.use('/equipments', equipmentsRoutes);
 app.use('/borrows', borrowsRoutes);
 app.use('/returns', returnsRoutes);
+
+app.use('/expenses/electricity', electricityRoutes );
+app.use('/expenses/water', waterRoutes);
+app.use('/expenses/combined',combineRoutes);
 
 // Default route
 app.get('/', (req, res) => {

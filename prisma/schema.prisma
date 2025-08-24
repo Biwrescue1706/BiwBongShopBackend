@@ -67,3 +67,25 @@ model Return {
   Created_At  DateTime @default(now())
   Update_At   DateTime?
 }
+
+model Electricity {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  Eid        String   @unique     // เช่น "5258-2568-2586"
+  Emonth     String               // เดือน
+  Emeter     Int                  // มิเตอร์ปัจจุบัน
+  EprevMeter Int                  // มิเตอร์เดือนก่อน
+  Eunits     Int                  // จำนวนหน่วย
+  Eprice     Float                // ค่าไฟรวม
+  createdAt  DateTime @default(now())
+}
+
+model Water {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  Wid        String   @unique
+  Wmonth     String
+  Wmeter     Int
+  WprevMeter Int
+  Wunits     Int
+  Wprice     Float
+  createdAt  DateTime @default(now())
+}
