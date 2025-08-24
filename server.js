@@ -18,8 +18,10 @@ if (!JWT_SECRET) {
 const allowedOrigins = [
   'http://127.0.0.1:5500',
   'http://localhost:5500',
-  'http://localhost:3000',    
-'https://biwbongshop.onrender.com', 'https://biwbongshopbackend.onrender.com'
+  'http://localhost:3000',
+  'https://biwbongshop.onrender.com',
+  'https://biwbongexpenses.onrender.com',
+  'https://biwbongshopbackend.onrender.com'
 ];
 
 // สร้าง app
@@ -67,9 +69,9 @@ app.use('/equipments', equipmentsRoutes);
 app.use('/borrows', borrowsRoutes);
 app.use('/returns', returnsRoutes);
 
-app.use('/expenses/electricity', electricityRoutes );
+app.use('/expenses/electricity', electricityRoutes);
 app.use('/expenses/water', waterRoutes);
-app.use('/expenses/combined',combineRoutes);
+app.use('/expenses/combined', combineRoutes);
 
 // Default route
 app.get('/', (req, res) => {
