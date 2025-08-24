@@ -5,7 +5,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
 // ตรวจสอบ .env
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -51,11 +51,11 @@ mongoose.connect(MONGO_URI, {
 });
 
 // นำเข้า routes
-const authRoutes = require('./routes/auth.routes');
-const usersRoutes = require('./routes/users.routes');
-const equipmentsRoutes = require('./routes/equipments.routes');
-const borrowsRoutes = require('./routes/borrows.routes');
-const returnsRoutes = require('./routes/returns.routes');
+const authRoutes = require('./routes/borrw/auth.routes');
+const usersRoutes = require('./routes/borrw/users.routes');
+const equipmentsRoutes = require('./routes/borrw/equipments.routes');
+const borrowsRoutes = require('./routes/borrw/borrows.routes');
+const returnsRoutes = require('./routes/borrw/returns.routes');
 
 // ใช้งาน routes
 app.use('/auth', authRoutes);

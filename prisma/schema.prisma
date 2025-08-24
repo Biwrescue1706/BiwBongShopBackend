@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGO_URI")
+}
+
+/// from models/User.js
+model User {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  UserId     Int      @unique               // unique numeric id
+  username   String   @unique               // required + unique
+  name       String?                         // optional
+  password   String                          // required
+  Created_At DateTime @default(now())
+  Update_At  DateTime?
+}
+
+/// from models/Equipment.js
+model Equipment {
+  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
+  EID                Int      @unique
+  EName              String
+  Total              Int
+  Available          Int
+  Created_ById       Int
+  Created_Byusername String
+  Update_ById        Int?
+  Update_Byusername  String?
+  Created_At         DateTime @default(now())
+  Update_At          DateTime?
+}
+
+/// from models/Borrow.js
+model Borrow {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  BorrowID         Int      @unique
+  username         String
+  name             String?
+  names            String?
+  EquipmentID      Int
+  EName            String
+  Quantity         Int
+  ReturnedQuantity Int      @default(0)
+  Date             DateTime
+  ReturnDate       DateTime?
+  Returned         Boolean  @default(false)
+  Created_At       DateTime @default(now())
+  Update_At        DateTime?
+}
+
+/// from models/Return.js
+model Return {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  ReturnID    Int      @unique
+  BorrowID    Int
+  username    String
+  name        String?
+  names       String?
+  EquipmentID Int
+  Ename       String?
+  Quantity    Int
+  ReturnDate  DateTime?
+  Created_At  DateTime @default(now())
+  Update_At   DateTime?
+}
