@@ -10,19 +10,19 @@ datasource db {
 
 /// from models/User.js
 model User {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  UserId     Int      @unique               // unique numeric id
-  username   String   @unique               // required + unique
-  name       String?                         // optional
-  password   String                          // required
-  Created_At DateTime @default(now())
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  UserId     Int       @unique // unique numeric id
+  username   String    @unique // required + unique
+  name       String? // optional
+  password   String // required
+  Created_At DateTime  @default(now())
   Update_At  DateTime?
 }
 
 /// from models/Equipment.js
 model Equipment {
-  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
-  EID                Int      @unique
+  id                 String    @id @default(auto()) @map("_id") @db.ObjectId
+  EID                Int       @unique
   EName              String
   Total              Int
   Available          Int
@@ -30,32 +30,32 @@ model Equipment {
   Created_Byusername String
   Update_ById        Int?
   Update_Byusername  String?
-  Created_At         DateTime @default(now())
+  Created_At         DateTime  @default(now())
   Update_At          DateTime?
 }
 
 /// from models/Borrow.js
 model Borrow {
-  id               String   @id @default(auto()) @map("_id") @db.ObjectId
-  BorrowID         Int      @unique
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  BorrowID         Int       @unique
   username         String
   name             String?
   names            String?
   EquipmentID      Int
   EName            String
   Quantity         Int
-  ReturnedQuantity Int      @default(0)
+  ReturnedQuantity Int       @default(0)
   Date             DateTime
   ReturnDate       DateTime?
-  Returned         Boolean  @default(false)
-  Created_At       DateTime @default(now())
+  Returned         Boolean   @default(false)
+  Created_At       DateTime  @default(now())
   Update_At        DateTime?
 }
 
 /// from models/Return.js
 model Return {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  ReturnID    Int      @unique
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  ReturnID    Int       @unique
   BorrowID    Int
   username    String
   name        String?
@@ -64,30 +64,30 @@ model Return {
   Ename       String?
   Quantity    Int
   ReturnDate  DateTime?
-  Created_At  DateTime @default(now())
+  Created_At  DateTime  @default(now())
   Update_At   DateTime?
 }
 
 model Electricity {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  Eid        String   @unique     // เช่น "5258-2568-2586"
-  Emonth     String               // เดือน
-  Emeter     Int                  // มิเตอร์ปัจจุบัน
-  EprevMeter Int                  // มิเตอร์เดือนก่อน
-  Eunits     Int                  // จำนวนหน่วย
-  Eprice     Float                // ค่าไฟรวม
-  createdAt  DateTime @default(now())
-  Update_At   DateTime?
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  Eid        String    @unique // เช่น "5258-2568-2586"
+  Emonth     String    @unique
+  Emeter     Int // มิเตอร์ปัจจุบัน
+  EprevMeter Int // มิเตอร์เดือนก่อน
+  Eunits     Int // จำนวนหน่วย
+  Eprice     Float // ค่าไฟรวม
+  createdAt  DateTime  @default(now())
+  Update_At  DateTime?
 }
 
 model Water {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  Wid        String   @unique
-  Wmonth     String
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  Wid        String    @unique
+  Wmonth     String    @unique
   Wmeter     Int
   WprevMeter Int
   Wunits     Int
   Wprice     Float
-  createdAt  DateTime @default(now())
-  Update_At   DateTime?
+  createdAt  DateTime  @default(now())
+  Update_At  DateTime?
 }
