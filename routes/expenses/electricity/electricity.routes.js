@@ -1,11 +1,11 @@
 // routes/expenses/electricity/electricity.routes.js
 const express = require('express');
-const prisma = require('../../../src/prisma'); // จาก expenses/electricity → src
+const prisma = require('../../../src/prisma');
 const router = express.Router();
 
 const ELEC_RATE = Number(process.env.ELEC_RATE) || 8;
 
-// ---------- Utils ----------
+/* ========================= Utils ========================= */
 function generateId() {
   const r = () => Math.floor(1000 + Math.random() * 9000);
   return `${r()}-${r()}-${r()}`;
@@ -45,21 +45,44 @@ async function cascadeRecalculate(tx, startMonth, startMeter) {
   }
 }
 
-// ---------- Routes ----------
+/* ========================= Routes ========================= */
 
-// GET /expenses/electricity/getall?q=YYYY-MM&page=1&pageSize=50
-// 👉 เรียงเดือน ม.ค. → ธ.ค. ด้วย Emonth ASC
+// GET /expenses/electricity/getall?q=YYYY-MM|YYYY-MM-DD&page=1&pageSize=50
+// เรียงเก่า → ใหม่ (ASC)
 router.get('/getall', async (req, res) => {
   try {
+    const { q } = req.query;
+    const page = Math.max(1, Number(req.query.page || 1));
+    const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize || 200)));
+
+    // สร้าง where ตาม q (ถ้า q = YYYY-MM จะ match เดือนนั้น, ถ้า q = YYYY-MM-DD จะเท่ากันเป๊ะ)
+    let where = {};
+    if (typeof q === 'string' && q.trim()) {
+      const s = q.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        where = { Emonth: s };
+      } else if (/^\d{4}-\d{2}$/.test(s)) {
+        where = { Emonth: { startsWith: s } };
+      }
+    }
+
     const [items, total] = await prisma.$transaction([
       prisma.electricity.findMany({
         where,
-        orderBy: [{ Emonth: 'asc' }], // 🔹 เรียง ม.ค. → ธ.ค.
+        orderBy: [{ Emonth: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
       }),
       prisma.electricity.count({ where }),
     ]);
 
-    res.json({ items, page, pageSize, total, totalPages: Math.ceil(total / pageSize) });
+    res.json({
+      items,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -78,14 +101,16 @@ router.get('/getall/latest', async (_req, res) => {
   }
 });
 
-// POST /expenses/electricity/getall/create  { Emonth, Emeter }
+// POST /expenses/electricity/getall/create  { Emonth, Emeter, baselinePrevMeter? }
 router.post('/getall/create', async (req, res) => {
   try {
-    let { Emonth, Emeter } = req.body;
+    let { Emonth, Emeter, baselinePrevMeter } = req.body;
     if (typeof Emeter !== 'number') {
       return res.status(400).json({ message: 'กรุณาระบุ Emeter (number)' });
     }
-    if (Emeter < 0) return res.status(400).json({ message: 'Emeter ต้องเป็นค่าบวกหรือศูนย์' });
+    if (Emeter < 0) {
+      return res.status(400).json({ message: 'Emeter ต้องเป็นค่าบวกหรือศูนย์' });
+    }
 
     const targetMonth = normalizeMonth(Emonth);
 
@@ -99,7 +124,15 @@ router.post('/getall/create', async (req, res) => {
         where: { Emonth: { lt: targetMonth } },
         orderBy: { Emonth: 'desc' },
       });
-      const prevMeter = prev ? prev.Emeter : 0;
+
+      let prevMeter = prev ? prev.Emeter : 0;
+
+      // อนุญาต baselinePrevMeter เฉพาะกรณี "ไม่มีเดือนก่อนหน้า"
+      if (!prev && typeof baselinePrevMeter === 'number') {
+        if (baselinePrevMeter < 0) throw new Error('baselinePrevMeter ต้องเป็นค่าบวกหรือศูนย์');
+        if (baselinePrevMeter > Emeter) throw new Error('baselinePrevMeter ต้องไม่มากกว่า Emeter');
+        prevMeter = baselinePrevMeter;
+      }
 
       const Eunits = Emeter - prevMeter;
       if (Eunits < 0) {
@@ -134,15 +167,15 @@ router.post('/getall/create', async (req, res) => {
 
     res.status(201).json(created);
   } catch (err) {
-    res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    res.status(400).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
   }
 });
 
-// PUT /expenses/electricity/getall/:Eid  { Emonth?, Emeter? }
+// PUT /expenses/electricity/getall/:Eid
 router.put('/getall/:Eid', async (req, res) => {
   try {
     const { Eid } = req.params;
-    let { Emonth, Emeter } = req.body;
+    let { Emonth, Emeter, EprevMeter, allowPrevOverride } = req.body;
 
     const current = await prisma.electricity.findUnique({ where: { Eid } });
     if (!current) return res.status(404).json({ message: 'ไม่พบรายการ' });
@@ -161,12 +194,28 @@ router.put('/getall/:Eid', async (req, res) => {
     if (newMeter < 0) return res.status(400).json({ message: 'Emeter ต้องเป็นค่าบวกหรือศูนย์' });
 
     const updated = await prisma.$transaction(async (tx) => {
-      // หาเดือนก่อนหน้าตาม newMonth (ไม่นับตัวเอง)
+      // หาเดือนก่อนหน้าตามตำแหน่ง newMonth (ไม่นับตัวเอง)
       const prevRec = await tx.electricity.findFirst({
         where: { Emonth: { lt: newMonth }, NOT: { Eid } },
         orderBy: { Emonth: 'desc' },
+        select: { Emeter: true, Emonth: true },
       });
-      const prevMeter = prevRec ? prevRec.Emeter : 0;
+
+      let prevMeter = prevRec ? prevRec.Emeter : 0;
+
+      // ✅ อนุญาต override เมื่อร้องขออย่างชัดเจน
+      if (allowPrevOverride === true && typeof EprevMeter === 'number') {
+        if (EprevMeter < 0) throw new Error('EprevMeter ต้องเป็นค่าบวกหรือศูนย์');
+        if (EprevMeter > newMeter) throw new Error('EprevMeter ต้องไม่มากกว่า Emeter');
+
+        // ถ้ามีเดือนก่อนอยู่ ต้องไม่ทำให้ chain ขาด
+        if (prevRec && EprevMeter !== prevRec.Emeter) {
+          throw new Error(
+            `EprevMeter ต้องเท่ากับ Emeter ของเดือนก่อนหน้า (${prevRec.Emonth}: ${prevRec.Emeter})`
+          );
+        }
+        prevMeter = EprevMeter;
+      }
 
       const Eunits = newMeter - prevMeter;
       if (Eunits < 0) throw new Error('Emeter ต้องไม่ต่ำกว่าเดือนก่อน');
@@ -193,7 +242,7 @@ router.put('/getall/:Eid', async (req, res) => {
 
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    res.status(400).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
   }
 });
 

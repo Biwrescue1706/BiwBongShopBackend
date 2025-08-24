@@ -5,7 +5,7 @@ const router = express.Router();
 
 const WATER_RATE = Number(process.env.WATER_RATE) || 19;
 
-// ---------- Utils ----------
+/* ========================= Utils ========================= */
 function generateId() {
   const r = () => Math.floor(1000 + Math.random() * 9000);
   return `${r()}-${r()}-${r()}`;
@@ -20,7 +20,7 @@ function normalizeMonth(input) {
   return `${y}-${m}-25`;
 }
 
-// ปรับค่าของรายการตั้งแต่เดือนที่มากกว่า startMonth ไปข้างหน้า
+// ปรับค่ารายการตั้งแต่เดือนที่มากกว่า startMonth ไปข้างหน้า
 async function cascadeRecalculate(tx, startMonth, startMeter) {
   const nextItems = await tx.water.findMany({
     where: { Wmonth: { gt: startMonth } },
@@ -45,22 +45,44 @@ async function cascadeRecalculate(tx, startMonth, startMeter) {
   }
 }
 
-// ---------- Routes ----------
+/* ========================= Routes ========================= */
 
-// GET /expenses/water/getall?q=YYYY-MM&page=1&pageSize=50
-// 👉 เรียง ม.ค. → ธ.ค. โดยใช้ Wmonth ASC
+// GET /expenses/water/getall?q=YYYY-MM|YYYY-MM-DD&page=1&pageSize=50
+// เรียงเก่า → ใหม่ (ASC)
 router.get('/getall', async (req, res) => {
   try {
+    const { q } = req.query;
+    const page = Math.max(1, Number(req.query.page || 1));
+    const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize || 200)));
+
+    // where จาก q: YYYY-MM จะ match เดือนนั้น, YYYY-MM-DD จะเท่ากันเป๊ะ
+    let where = {};
+    if (typeof q === 'string' && q.trim()) {
+      const s = q.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        where = { Wmonth: s };
+      } else if (/^\d{4}-\d{2}$/.test(s)) {
+        where = { Wmonth: { startsWith: s } };
+      }
+    }
 
     const [items, total] = await prisma.$transaction([
       prisma.water.findMany({
         where,
-        orderBy: [{ Wmonth: 'asc' }], // 🔹 ม.ค. → ธ.ค.
+        orderBy: [{ Wmonth: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
       }),
       prisma.water.count({ where }),
     ]);
 
-    res.json({ items, page, pageSize, total, totalPages: Math.ceil(total / pageSize) });
+    res.json({
+      items,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -79,14 +101,16 @@ router.get('/getall/latest', async (_req, res) => {
   }
 });
 
-// POST /expenses/water/getall/create  { Wmonth, Wmeter }
+// POST /expenses/water/getall/create  { Wmonth, Wmeter, baselinePrevMeter? }
 router.post('/getall/create', async (req, res) => {
   try {
-    let { Wmonth, Wmeter } = req.body;
+    let { Wmonth, Wmeter, baselinePrevMeter } = req.body;
     if (typeof Wmeter !== 'number') {
       return res.status(400).json({ message: 'กรุณาระบุ Wmeter (number)' });
     }
-    if (Wmeter < 0) return res.status(400).json({ message: 'Wmeter ต้องเป็นค่าบวกหรือศูนย์' });
+    if (Wmeter < 0) {
+      return res.status(400).json({ message: 'Wmeter ต้องเป็นค่าบวกหรือศูนย์' });
+    }
 
     const targetMonth = normalizeMonth(Wmonth);
 
@@ -95,12 +119,20 @@ router.post('/getall/create', async (req, res) => {
       const dup = await tx.water.findFirst({ where: { Wmonth: targetMonth } });
       if (dup) throw new Error(`เดือน ${targetMonth} ถูกบันทึกไว้แล้ว`);
 
-      // หาเดือนก่อนหน้าเทียบตาม Wmonth
+      // หาเดือนก่อนหน้า
       const prev = await tx.water.findFirst({
         where: { Wmonth: { lt: targetMonth } },
         orderBy: { Wmonth: 'desc' },
       });
-      const prevMeter = prev ? prev.Wmeter : 0;
+
+      let prevMeter = prev ? prev.Wmeter : 0;
+
+      // ✅ อนุญาต baselinePrevMeter เฉพาะกรณี "ไม่มีเดือนก่อนหน้า"
+      if (!prev && typeof baselinePrevMeter === 'number') {
+        if (baselinePrevMeter < 0) throw new Error('baselinePrevMeter ต้องเป็นค่าบวกหรือศูนย์');
+        if (baselinePrevMeter > Wmeter) throw new Error('baselinePrevMeter ต้องไม่มากกว่า Wmeter');
+        prevMeter = baselinePrevMeter;
+      }
 
       const Wunits = Wmeter - prevMeter;
       if (Wunits < 0) {
@@ -121,29 +153,28 @@ router.post('/getall/create', async (req, res) => {
         },
       });
 
-      // ถ้าแทรกกลาง มีเดือนที่มากกว่า targetMonth อยู่แล้ว → cascade forward
+      // ถ้าแทรกกลาง → cascade forward
       const hasNext = await tx.water.findFirst({
         where: { Wmonth: { gt: targetMonth } },
         select: { Wid: true },
       });
-      if (hasNext) {
-        await cascadeRecalculate(tx, targetMonth, Wmeter);
-      }
+      if (hasNext) await cascadeRecalculate(tx, targetMonth, Wmeter);
 
       return row;
     });
 
     res.status(201).json(created);
   } catch (err) {
-    res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    res.status(400).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
   }
 });
 
-// PUT /expenses/water/getall/:Wid  { Wmonth?, Wmeter? }
+// PUT /expenses/water/getall/:Wid
+// Body: { Wmonth?, Wmeter?, WprevMeter?, allowPrevOverride? }
 router.put('/getall/:Wid', async (req, res) => {
   try {
     const { Wid } = req.params;
-    let { Wmonth, Wmeter } = req.body;
+    let { Wmonth, Wmeter, WprevMeter, allowPrevOverride } = req.body;
 
     const current = await prisma.water.findUnique({ where: { Wid } });
     if (!current) return res.status(404).json({ message: 'ไม่พบรายการ' });
@@ -162,19 +193,34 @@ router.put('/getall/:Wid', async (req, res) => {
     if (newMeter < 0) return res.status(400).json({ message: 'Wmeter ต้องเป็นค่าบวกหรือศูนย์' });
 
     const updated = await prisma.$transaction(async (tx) => {
-      // หาเดือนก่อนหน้าตาม newMonth (ไม่รวมตัวเอง)
+      // หาเดือนก่อนหน้าตามตำแหน่ง newMonth (ไม่นับตัวเอง)
       const prevRec = await tx.water.findFirst({
         where: { Wmonth: { lt: newMonth }, NOT: { Wid } },
         orderBy: { Wmonth: 'desc' },
+        select: { Wmeter: true, Wmonth: true },
       });
-      const prevMeter = prevRec ? prevRec.Wmeter : 0;
+
+      let prevMeter = prevRec ? prevRec.Wmeter : 0;
+
+      // ✅ ยอมรับ override เมื่อส่ง allowPrevOverride=true
+      if (allowPrevOverride === true && typeof WprevMeter === 'number') {
+        if (WprevMeter < 0) throw new Error('WprevMeter ต้องเป็นค่าบวกหรือศูนย์');
+        if (WprevMeter > newMeter) throw new Error('WprevMeter ต้องไม่มากกว่า Wmeter');
+
+        // ถ้ามีเดือนก่อนอยู่ ต้องรักษา chain
+        if (prevRec && WprevMeter !== prevRec.Wmeter) {
+          throw new Error(
+            `WprevMeter ต้องเท่ากับ Wmeter ของเดือนก่อนหน้า (${prevRec.Wmonth}: ${prevRec.Wmeter})`
+          );
+        }
+        prevMeter = WprevMeter;
+      }
 
       const Wunits = newMeter - prevMeter;
       if (Wunits < 0) throw new Error('Wmeter ต้องไม่ต่ำกว่าเดือนก่อน');
 
       const Wprice = Wunits * WATER_RATE;
 
-      // อัปเดตรายการนี้
       const row = await tx.water.update({
         where: { Wid },
         data: {
@@ -186,7 +232,7 @@ router.put('/getall/:Wid', async (req, res) => {
         },
       });
 
-      // cascade คำนวณเดือนถัดไปใหม่
+      // cascade เดือนถัดไป
       await cascadeRecalculate(tx, newMonth, newMeter);
 
       return row;
@@ -194,7 +240,7 @@ router.put('/getall/:Wid', async (req, res) => {
 
     res.json(updated);
   } catch (err) {
-    res.status(500).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
+    res.status(400).json({ message: 'เกิดข้อผิดพลาด', error: err.message });
   }
 });
 
@@ -218,7 +264,7 @@ router.delete('/getall/:Wid', async (req, res) => {
 
       await tx.water.delete({ where: { Wid } });
 
-      // cascade เริ่มจากเดือนถัดไปของ prevMonth
+      // cascade: คำนวณใหม่ตั้งแต่เดือนถัดไป
       await cascadeRecalculate(tx, prevMonth, prevMeter);
     });
 
