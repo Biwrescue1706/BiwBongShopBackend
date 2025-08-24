@@ -45,15 +45,11 @@ async function cascadeRecalculate(tx, startMonth, startMeter) {
   }
 }
 
-/* ========================= Routes ========================= */
+/* ========================= Routes =======================*/
 
-// GET /expenses/electricity/getall?q=YYYY-MM|YYYY-MM-DD&page=1&pageSize=50
-// เรียงเก่า → ใหม่ (ASC)
 router.get('/getall', async (req, res) => {
   try {
     const { q } = req.query;
-    const page = Math.max(1, Number(req.query.page || 1));
-    const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize || 200)));
 
     // สร้าง where ตาม q (ถ้า q = YYYY-MM จะ match เดือนนั้น, ถ้า q = YYYY-MM-DD จะเท่ากันเป๊ะ)
     let where = {};
@@ -70,19 +66,10 @@ router.get('/getall', async (req, res) => {
       prisma.electricity.findMany({
         where,
         orderBy: [{ Emonth: 'asc' }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
       }),
       prisma.electricity.count({ where }),
     ]);
-
-    res.json({
-      items,
-      page,
-      pageSize,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-    });
+    res.json(items);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
