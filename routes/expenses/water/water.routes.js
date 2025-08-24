@@ -51,11 +51,6 @@ async function cascadeRecalculate(tx, startMonth, startMeter) {
 // 👉 เรียง ม.ค. → ธ.ค. โดยใช้ Wmonth ASC
 router.get('/getall', async (req, res) => {
   try {
-    const q = (req.query.q || '').toString().trim();
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 50));
-
-    const where = q ? { Wmonth: { contains: q, mode: 'insensitive' } } : undefined;
 
     const [items, total] = await prisma.$transaction([
       prisma.water.findMany({

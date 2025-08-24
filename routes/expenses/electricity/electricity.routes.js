@@ -51,12 +51,6 @@ async function cascadeRecalculate(tx, startMonth, startMeter) {
 // 👉 เรียงเดือน ม.ค. → ธ.ค. ด้วย Emonth ASC
 router.get('/getall', async (req, res) => {
   try {
-    const q = (req.query.q || '').toString().trim();
-    const page = Math.max(1, Number(req.query.page) || 1);
-    const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 50));
-
-    const where = q ? { Emonth: { contains: q, mode: 'insensitive' } } : undefined;
-
     const [items, total] = await prisma.$transaction([
       prisma.electricity.findMany({
         where,
