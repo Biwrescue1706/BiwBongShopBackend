@@ -60,8 +60,6 @@ router.get('/getall', async (req, res) => {
     const [items, total] = await prisma.$transaction([
       prisma.electricity.findMany({
         where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
         orderBy: [{ Emonth: 'asc' }], // 🔹 เรียง ม.ค. → ธ.ค.
       }),
       prisma.electricity.count({ where }),

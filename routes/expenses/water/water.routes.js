@@ -60,8 +60,6 @@ router.get('/getall', async (req, res) => {
     const [items, total] = await prisma.$transaction([
       prisma.water.findMany({
         where,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
         orderBy: [{ Wmonth: 'asc' }], // 🔹 ม.ค. → ธ.ค.
       }),
       prisma.water.count({ where }),
