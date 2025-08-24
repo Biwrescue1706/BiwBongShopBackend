@@ -66,7 +66,7 @@ app.use('/returns', returnsRoutes);
 
 // Default route
 app.get('/', (req, res) => {
-  res.send('🚀 Backend server is running...');
+  res.send('🚀 เซิร์ฟเวอร์ backend กำลังทำงานอยู่ครับ...');
 });
 
 // 404 not found
