@@ -62,7 +62,7 @@ router.get('/getall', async (req, res) => {
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: [{ Wmonth: 'asc' }, { createdAt: 'asc' }], // 🔹 ม.ค. → ธ.ค.
+        orderBy: [{ Wmonth: 'asc' }], // 🔹 ม.ค. → ธ.ค.
       }),
       prisma.water.count({ where }),
     ]);
