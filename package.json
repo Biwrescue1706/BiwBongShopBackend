@@ -174,7 +174,7 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "prisma:push": "prisma db push",
-    "render-build": "npm run prisma:generate && npm run prisma:push",
+    "render-build": "npx prisma generate && npx prisma db push",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
