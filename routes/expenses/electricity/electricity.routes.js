@@ -62,7 +62,7 @@ router.get('/getall', async (req, res) => {
         where,
         skip: (page - 1) * pageSize,
         take: pageSize,
-        orderBy: [{ Emonth: 'asc' }, { createdAt: 'asc' }], // 🔹 เรียง ม.ค. → ธ.ค.
+        orderBy: [{ Emonth: 'asc' }], // 🔹 เรียง ม.ค. → ธ.ค.
       }),
       prisma.electricity.count({ where }),
     ]);
