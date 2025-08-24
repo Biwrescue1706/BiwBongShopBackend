@@ -21,7 +21,7 @@ router.get('/getall', async (_req, res) => {
 router.get('/getall/:borrowId', async (req, res) => {
   try {
     const borrowId = Number.parseInt(req.params.borrowId, 10);
-    const borrow = await prisma.borrow.findUnique({ where: { BorrowID: borrowId } });
+    const borrow = await prisma.borrow.findUnique({ where: { BorrowID: borrowId } ,orderBy: { BorrowID: 'asc' }});
     if (!borrow) return res.status(404).json({ message: 'ไม่พบข้อมูลการยืม' });
     res.json({ message: `ประวัติการยืม #${borrowId}`, borrow });
   } catch (err) {
