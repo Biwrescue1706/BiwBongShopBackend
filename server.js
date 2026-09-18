@@ -92,14 +92,14 @@ const waterRoutes = require("./routes/expenses/water/water.routes");
 const combineRoutes = require("./routes/expenses/combined/combined.routes");
 
 // Cashflow Routes
-const authRoute = require("./routes/auth.route");
-const typeRoute = require("./routes/type.route");
-const categoryRoute = require("./routes/category.route");
-const transactionRoute = require("./routes/transaction.route");
-const dashboardRoute = require("./routes/dashboard.route");
-const userRoute = require("./routes/user.route");
-const accountTypeRoute = require("./routes/accountType.route");
-const accountsRoute = require("./routes/accounts.route");
+const authRoute = require("./routes/expen/auth.route");
+const typeRoute = require("./routes/expen/type.route");
+const categoryRoute = require("./routes/expen/category.route");
+const transactionRoute = require("./routes/expen/transaction.route");
+const dashboardRoute = require("./routes/expen/dashboard.route");
+const userRoute = require("./routes/expen/user.route");
+const accountTypeRoute = require("./routes/expen/accountType.route");
+const accountsRoute = require("./routes/expen/accounts.route");
 
 // Borrow API
 app.use("/auth", authRoutes);
