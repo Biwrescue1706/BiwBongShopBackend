@@ -38,7 +38,7 @@ const allowedOrigins = [
   "https://biwbongshopbackend.onrender.com",
 
   // Cashflow
-  "https://hub-cashflow.smartdorm-biwboong.shop",
+  "https://hub-biwbong.smartdorm-biwboong.shop",
   "https://cashflow-page.smartdorm-biwboong.shop"
 ];
 
